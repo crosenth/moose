@@ -1,12 +1,10 @@
 # TODO
 
-I. Document features
-
-II. Decide what features are needed
-  a. calculate query coverage
-  b. filter Blast/(aligner) hits
-
-II. Standalone organization
-  a. subcommands
-  b. executables
-  c. command arguments
+1. Document features
+1. Decide what features are needed
+    * calculate query coverage
+    * filter Blast/(aligner) hits
+1. Standalone organization
+    * subcommands
+    * executables
+    * command arguments
