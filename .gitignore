@@ -1,0 +1,6 @@
+*.pyc
+build
+MANIFEST
+dist
+*.egg-info
+test_output
