@@ -1,19 +1,43 @@
+sudo: false
 language: python
-python:
-  - "2.7"
+python: 
+  - 2.7
+  - 3.0
+  - 3.1
+  - 3.2
+  - 3.3
+  - 3.4
+  - 3.5
 
-before_install:
-  - sudo apt-get build-dep python-numpy
-  - sudo apt-get install muscle
+cache:
+  # must specify pip dir
+  # https://github.com/travis-ci/travis-ci/issues/3239
+  directories:
+    - $HOME/.cache/pip
 
-install:
-  - "dev/bootstrap.sh --venv $VIRTUAL_ENV"
+env:
+  global:
+    # These two environment variables could be set by Travis itself, or Travis
+    # could configure itself in /etc/, ~/, or inside of the virtual
+    # environments. In any case if these two values get configured then end
+    # users only need to enable the pip cache and manually run pip wheel before
+    # running pip install.
+    - PIP_WHEEL_DIR=$HOME/.cache/pip/wheels
+    - PIP_FIND_LINKS=file://$HOME/.cache/pip/wheels
 
-script:
-  - ./testall
+# Install numpy, then BioPython and other dependencies
+# BioPython doesn't always play well with pip install.
+before_install: 
+  - pip wheel pandas sqlalchemy decorator biopython
+# for tox
+  - pip wheel check-manifest readme_renderer flake8 tox
+
+install: 
+  - pip install .
+  - pip install tox
+
+script: tox
 
 notifications:
   email:
-    - ngh2@uw.edu
     - crosenth@uw.edu
-    - tland9@uw.edu
