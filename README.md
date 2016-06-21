@@ -77,7 +77,12 @@ output options:
 
 1. Decide what features are needed
     * calculate query coverage
-    * filter Blast/(aligner) hits
+    * filter Blast/(aligner) hits (everythin gunder blast filtering options)
+    * expand results using weights file
+    * required columns [qseqid,sseqid,pident,qstart,qend,qlen]
+        * change to [qseqid,sseqid,pident]
+        * optional qcovs
+    *  pplacer outputs
 1. Standalone organization
     * subcommands
     * executables
