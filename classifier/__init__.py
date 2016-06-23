@@ -52,7 +52,7 @@ def main(argv=sys.argv[1:]):
     parser.add_argument('-h', '--help', action='help')
 
     # setup actions and actions' arguments
-    parser, actions = parse_subcommands(parser, argv)
+    parser, actions = parse_subcommands(parser, subcommands, argv)
 
     # finish building namespace
     namespace = parser.parse_args(args=argv, namespace=namespace)
@@ -65,6 +65,8 @@ def main(argv=sys.argv[1:]):
         # convert help <action> to <action> -h and loop back
         return main([str(namespace.action[0]), '-h'])
     else:
+        # global action, see subcommands/__init__.py
+        namespace = subcommands.action(namespace)
         return actions[action](namespace)
 
 
@@ -80,13 +82,12 @@ def setup_logging(namespace):
         3: logging.DEBUG,
     }.get(namespace.verbosity, logging.DEBUG)
 
-    log_format = ('%(asctime)s %(levelname)s %(filename)s '
-                  '%(funcName)s %(lineno)s %(message)s')
-    datefmt = '%Y-%m-%d %H:%M:%S'
+    if namespace.verbosity > 1:
+        logformat = '%(levelname)s classifier %(lineno)s %(message)s'
+    else:
+        logformat = 'classifier %(message)s'
 
-    logging.basicConfig(stream=namespace.log, format=log_format,
-                        level=loglevel, log_format=log_format,
-                        datefmt=datefmt)
+    logging.basicConfig(stream=namespace.log, format=logformat, level=loglevel)
 
 
 def parse_version(parser):
@@ -100,7 +101,7 @@ def parse_args(parser):
     parser.add_argument('-l', '--log',
                         metavar='FILE',
                         default=sys.stdout,
-                        type=utils.Opener('a'),  # append
+                        type=utils.opener('a'),  # append
                         help='Send logging to a file')
 
     parser.add_argument('-v', '--verbose',
@@ -119,7 +120,7 @@ def parse_args(parser):
     return parser
 
 
-def parse_subcommands(parser, argv):
+def parse_subcommands(parser, subcommands, argv):
     """
     Setup all sub-commands
     """
@@ -153,7 +154,6 @@ def parse_subcommands(parser, argv):
             imp = '{}.{}'.format(subcommands.__name__, name)
             mod = importlib.import_module(imp)
         except Exception, e:
-            log.error('error importing subcommand {}'.format(name))
             log.error(e)
             continue
 
@@ -163,9 +163,11 @@ def parse_subcommands(parser, argv):
             description=mod.__doc__,
             formatter_class=argparse.RawDescriptionHelpFormatter)
 
-        # see subcommands/__init__.py
-        subparser = subcommands.parse_args(subparser)
         mod.build_parser(subparser)
+
+        # see global subcommands/__init__.py
+        subcommands.build_parser(subparser)
+
         actions[name] = mod.action
 
     return parser, actions
