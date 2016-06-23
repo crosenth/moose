@@ -15,14 +15,11 @@
 
 import bz2
 import gzip
-import logging
+import itertools
 import sys
 
-log = logging.getLogger(__name__)
 
-
-class Opener(object):
-
+def opener(mode='r'):
     """Factory for creating file objects
 
     Keyword Arguments:
@@ -32,23 +29,26 @@ class Opener(object):
             the builtin open() function.
     """
 
-    def __init__(self, mode='r', bufsize=-1):
-        self._mode = mode
-        self._bufsize = bufsize
-
-    def __call__(self, string):
-        if string is sys.stdout or string is sys.stdin:
-            return string
-        elif string == '-':
-            return sys.stdin if 'r' in self._mode else sys.stdout
-        elif string.endswith('.bz2'):
-            return bz2.BZ2File(string, self._mode, self._bufsize)
-        elif string.endswith('.gz'):
-            return gzip.open(string, self._mode, self._bufsize)
+    def open_file(f):
+        if f is sys.stdout or f is sys.stdin:
+            return f
+        elif f == '-':
+            return sys.stdin if 'r' in mode else sys.stdout
+        elif f.endswith('.bz2'):
+            return bz2.BZ2File(f, mode)
+        elif f.endswith('.gz'):
+            return gzip.open(f, mode)
         else:
-            return open(string, self._mode, self._bufsize)
+            return open(f, mode)
 
-    def __repr__(self):
-        args = self._mode, self._bufsize
-        args_str = ', '.join(repr(arg) for arg in args if arg != -1)
-        return '{}({})'.format(type(self).__name__, args_str)
+    return open_file
+
+
+def groupbyl(li, key=None, as_dict=False):
+    groups = sorted(li, key=key)
+    groups = itertools.groupby(groups, key=key)
+    groups = ((g, list(l)) for g, l in groups)
+    if as_dict:
+        return(dict(groups))
+    else:
+        return groups
