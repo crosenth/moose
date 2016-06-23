@@ -22,7 +22,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
     def main(self, arguments):
         main(['classifier'] + [str(a) for a in arguments])
 
-    log_info = 'bioy classifier {}'
+    log_info = 'classifier classify {}'
 
     copy_numbers = os.path.join(datadir, 'rrnDB_16S_copy_num.csv.bz2')
 
@@ -534,8 +534,6 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
         Test --best-n-hits
         """
         thisdatadir = self.thisdatadir
-
-        this_test = sys._getframe().f_code.co_name
 
         # Blast results contain:
         # 2 strep mutans, 0 mismatch
