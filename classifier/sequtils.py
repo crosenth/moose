@@ -13,6 +13,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
 
+import itertools
 import logging
 import utils
 
@@ -95,3 +96,70 @@ def condense_ids(assignments,
         return groups
 
     return condense(assignments)
+
+
+def compound_assignment(assignments, taxonomy):
+    """
+    Create taxonomic names based on 'assignmnets', which are a set of
+    two-tuples: {(tax_id, is_starred), ...} where each tax_id is a key
+    into taxdict, and is_starred is a boolean indicating whether at
+    least one reference sequence had a parirwise alignment identity
+    score meeting some thresholed. 'taxdict' is a dictionary keyed by
+    tax_id and returning a dict of taxonomic data corresponding to a
+    row from the taxonomy file. If 'include_stars' is False, ignore
+    the second element of each tuple in 'assignments' and do not
+    include asterisks in the output names.
+    assignments = [(tax_id, is_starred),...]
+    taxonomy = {taxid:taxonomy}
+    Functionality: see format_taxonomy
+    """
+
+    if not taxonomy:
+        raise TypeError('taxonomy must not be empty or NoneType')
+
+    assignments = ((taxonomy[i]['tax_name'], a) for i, a in assignments)
+    assignments = zip(*assignments)
+
+    return format_taxonomy(*assignments, asterisk='*')
+
+
+def format_taxonomy(names, selectors, asterisk='*'):
+    """
+    Create a friendly formatted string of taxonomy names. Names will
+    have an asterisk value appended *only* if the cooresponding
+    element in the selectors evaluates to True.
+    """
+
+    names = itertools.izip_longest(names, selectors)
+    names = ((n, asterisk if s else '')
+             for n, s in names)  # add asterisk to selected names
+    names = set(names)
+    names = sorted(names)  # sort by the name plus asterisk
+    names = itertools.groupby(names, key=itemgetter(0))  # group by just the names
+    # prefer asterisk names which will be at the bottom
+    names = (list(g)[-1] for _, g in names)
+    names = (n + a for n, a in names)  # combine names with asterisks
+    # assume species names have exactly two words
+
+    def is_species(s):
+        return len(s.split()) == 2
+
+    names = sorted(names, key=is_species)
+    names = itertools.groupby(names, key=is_species)
+
+    tax = []
+
+    for species, assigns in names:
+        if species:
+            # take the species word and combine them with a '/'
+            assigns = (a.split() for a in assigns)
+            # group by genus name
+            assigns = itertools.groupby(assigns, key=itemgetter(0))
+            assigns = ((k, map(itemgetter(1), g))
+                       for k, g in assigns)  # get a list of the species names
+            assigns = ('{} {}'.format(k, '/'.join(g))
+                       for k, g in assigns)  # combine species names with '/'
+
+        tax.extend(assigns)
+
+    return ';'.join(sorted(tax))
