@@ -1,17 +1,17 @@
-# This file is part of Bioy
+# This file is part of classifier
 #
-#    Bioy is free software: you can redistribute it and/or modify
+#    classifier is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
-#    Bioy is distributed in the hope that it will be useful,
+#    classifier is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public License
-#    along with Bioy.  If not, see <http://www.gnu.org/licenses/>.
+#    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
 
 """Classify sequences by grouping blast output by matching taxonomic names
 
@@ -507,13 +507,15 @@ def build_parser(parser):
     blast_parser.add_argument(
         '--has-header', action='store_true', help='if blast data has a header')
     blast_parser.add_argument(
-        '--columns', default='qseqid,sseqid,pident,qstart,qend,qlen',
+        '--columns',
+        default=('qseqid,sseqid,pident,length,mismatch,'
+                 'gapopen,qstart,qend,sstart,send,evalue,bitscore'),
         help=('column specifiers. global query coverage can be '
               'calculated by including the qstart, qend and qlen specifiers. '
               'column "mismatch will filter out all but the best N hits based '
-              'on the number of mismatches.'))
+              'on the number of mismatches. [%(default)s]'))
     blast_parser.add_argument(
-        '--tab', action='store_true', help='default: csv')
+        '--csv', action='store_true', help='default: tabular')
 
     filters_parser = parser.add_argument_group('blast filtering options')
     filters_parser.add_argument(
@@ -605,15 +607,21 @@ def action(args):
     # pd.set_option('display.max_columns', None)
     # pd.set_option('display.max_rows', None)
 
+    columns = args.columns.split(',')
+    usecols = ['qseqid', 'sseqid', 'pident', 'qcovs', 'mistmatch']
+
     log.info('loading blast results')
     blast_results = pd.read_csv(
         args.blast,
-        dtype={'qseqid': str, 'sseqid': str, 'pident': float,
-               'qcovs': float, 'qstart': float, 'qend': float,
-               'qlen': float, 'mismatch': float},
-        names=None if args.has_header else args.columns.split(','),
+        dtype={'qseqid': str,
+               'sseqid': str,
+               'pident': float,
+               'qcovs': float,
+               'mismatch': float},
+        usecols=[col for col in columns if col in usecols],
+        names=None if args.has_header else columns,
         header=0 if args.has_header else None,
-        sep='\t' if args.tab else ',',
+        sep=',' if args.csv else '\t',
         nrows=args.limit)
 
     if blast_results.empty:
