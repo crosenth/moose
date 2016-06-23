@@ -7,7 +7,7 @@ setuptools.setup(author='Chris Rosenthal',
                  name='classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
                  entry_points={'console_scripts':
-                               {'classify = classifier:main'}},
+                               {'classifier = classifier:main'}},
                  version=classifier.version.version(),
                  url='https://bitbucket.org/uwlabmed/classifier',
                  package_data={'classifier': ['data/*']},
