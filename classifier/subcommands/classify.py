@@ -608,7 +608,7 @@ def action(args):
     # pd.set_option('display.max_rows', None)
 
     columns = args.columns.split(',')
-    usecols = ['qseqid', 'sseqid', 'pident', 'qcovs', 'mistmatch']
+    usecols = ['qseqid', 'sseqid', 'pident', 'qcovs', 'mismatch']
 
     log.info('loading blast results')
     blast_results = pd.read_csv(
