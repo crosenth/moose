@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 class TestClassifier(TestBase, TestCaseSuppressOutput):
 
     def main(self, arguments):
-        main(['classifier'] + [str(a) for a in arguments])
+        main(['classify'] + [str(a) for a in arguments])
 
     log_info = 'classifier classify {}'
 
@@ -52,6 +52,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--out', classify_out,
             '--details-out', details_out,
@@ -91,6 +92,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--weights', weights,
             '--out', classify_out,
@@ -131,6 +133,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--specimen-map', specimen_map,
             '--out', classify_out,
@@ -170,6 +173,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--max-pident', '100',
             '--min-pident', '99',
@@ -212,6 +216,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--max-pident', '100',
             '--min-pident', '99',
@@ -256,6 +261,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--specimen-map', specimen_map,
             '--details-out', details_out,
@@ -290,6 +296,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
         seq_info = os.path.join(thisdatadir, this_test, 'seq_info.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
@@ -327,6 +334,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--weights', weights,
             '--details-out', details_out,
@@ -365,6 +373,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'classifications.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--has-header',
             '--out', classify_out,
@@ -404,6 +413,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
@@ -441,6 +451,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--weights', weights,
             '--details-out', details_out,
@@ -481,6 +492,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'classifications.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--specimen', 'specimen',
             '--weights', weights,
@@ -516,6 +528,7 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--csv',
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--hits-below-threshold',
             '--details-out', details_out,
@@ -550,7 +563,8 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
         details_out = os.path.join(outdir, 'details.csv.bz2')
 
         args = [
-            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
+            '--csv',
+            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs,mismatch',
             '--best-n-hits', 3,
             '--details-out', details_out,
             '--out', classify_out,
@@ -563,6 +577,12 @@ class TestClassifier(TestBase, TestCaseSuppressOutput):
 
         names = list(set([line['tax_name'] for line in csv.DictReader(BZ2File(details_out))]))
 
-        # Normally we would expect 4 details rows spanning 3 tax_names, lending to the classification "Streptococcus infantarius/mutans*/troglodytae"
-        # With --best-n-hits, we expect 3 details rows lending to the classification
+        print(names)
+
+        """
+        Normally we would expect 4 details rows spanning 3 tax_names, lending
+        to the classification "Streptococcus infantarius/mutans*/troglodytae
+        With --best-n-hits, we expect 3 details rows
+        lending to the classification
+        """
         self.assertTrue(len(names) == 2)

@@ -2,10 +2,10 @@ import cPickle
 import sys
 import logging
 import os
-from os import path
+import shutil
 import unittest
 
-from classifier.utils import mkdir, opener
+from classifier import utils
 
 # set up logging for unit tests
 verbosity_flag = [x for x in sys.argv if x.startswith('-v')]
@@ -29,7 +29,9 @@ log = logging.getLogger(__name__)
 datadir = 'testfiles'
 outputdir = 'test_output'
 
-mkdir(outputdir)
+if not os.path.isdir(outputdir):
+    os.mkdir(outputdir)
+
 
 class TestBase(unittest.TestCase):
     """
@@ -39,23 +41,30 @@ class TestBase(unittest.TestCase):
 
     outputdir = outputdir
 
-    def mkoutdir(self, clobber = True):
+    def mkoutdir(self, clobber=True):
         """
         Create outdir as outpudir/module.class.method (destructively
         if clobber is True).
         """
 
         funcname = '.'.join(self.id().split('.')[-3:])
-        outdir = path.join(self.outputdir, funcname)
-        mkdir(outdir, clobber)
+        outdir = os.path.join(self.outputdir, funcname)
+
+        if clobber:
+            shutil.rmtree(outdir, ignore_errors=True)
+            os.mkdir(outdir)
+        elif not os.path.isdir(outdir):
+            os.mkdir(outdir)
+
         return outdir
 
     def data(self, fname):
-        return path.join(datadir, fname)
+        return os.path.join(datadir, fname)
 
     def write_pickle(self, pth, data):
-        with opener(pth, 'wb') as f:
+        with utils.opener(pth, 'wb') as f:
             cPickle.dump(data, f, protocol=cPickle.HIGHEST_PROTOCOL)
+
 
 class TestCaseSuppressOutput(unittest.TestCase):
 
@@ -69,4 +78,3 @@ class TestCaseSuppressOutput(unittest.TestCase):
         if self.suppress_output:
             sys.stdout = sys.__stdout__
             sys.stderr = sys.__stderr__
-
