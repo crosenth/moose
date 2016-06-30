@@ -194,56 +194,6 @@ log = logging.getLogger(__name__)
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
 
 
-def raw_filtering(blast_results, min_coverage=None,
-                  max_identity=None, min_identity=None):
-    """run raw hi, low and coverage filters and output log information
-    """
-
-    blast_results_len = len(blast_results)
-
-    if min_coverage:
-        # run raw hi, low and coverage filters
-        blast_results = blast_results[
-            blast_results['qcovs'] >= min_coverage]
-
-        blast_results_post_len = len(blast_results)
-
-        len_diff = blast_results_len - blast_results_post_len
-        if len_diff:
-            log.warn('dropping {} sequences below '
-                     'coverage threshold'.format(len_diff))
-
-        blast_results_len = blast_results_post_len
-
-    if max_identity:
-        blast_results = blast_results[
-            blast_results['pident'] <= max_identity]
-
-        blast_results_post_len = len(blast_results)
-
-        len_diff = blast_results_len - blast_results_post_len
-        if len_diff:
-            log.warn('dropping {} sequences above max_identity'.format(
-                len_diff))
-
-        blast_results_len = blast_results_post_len
-
-    if min_identity:
-        blast_results = blast_results[
-            blast_results['pident'] >= min_identity]
-
-        blast_results_post_len = len(blast_results)
-
-        len_diff = blast_results_len - blast_results_post_len
-        if len_diff:
-            log.warn('dropping {} sequences below min_identity'.format(
-                len_diff))
-
-        blast_results_len = blast_results_post_len
-
-    return blast_results
-
-
 def round_up(x):
     """round up any x < 0.01
     """
@@ -505,8 +455,6 @@ def build_parser(parser):
 
     blast_parser = parser.add_argument_group('blast input options')
     blast_parser.add_argument(
-        '--has-header', action='store_true', help='if blast data has a header')
-    blast_parser.add_argument(
         '--columns',
         default=('qseqid,sseqid,pident,length,mismatch,'
                  'gapopen,qstart,qend,sstart,send,evalue,bitscore'),
@@ -517,22 +465,11 @@ def build_parser(parser):
     blast_parser.add_argument(
         '--csv', action='store_true', help='default: tabular')
 
-    filters_parser = parser.add_argument_group('blast filtering options')
-    filters_parser.add_argument(
-        '--limit', type=int, help='limit number of blast results')
-    filters_parser.add_argument(
-        '--min-pident', metavar='PERCENT', type=float,
-        help='minimum identity threshold for accepting matches')
-    filters_parser.add_argument(
-        '--max-pident', metavar='PERCENT', type=float,
-        help='maximum identity threshold for accepting matches')
+    filters_parser = parser.add_argument_group('blast qseqid filtering options')
     filters_parser.add_argument(
         '--min-cluster-size', default=1, metavar='INTEGER', type=int,
         help=('minimum cluster size to include '
               'in classification output [%(default)s]'))
-    filters_parser.add_argument(
-        '--min-qcovs', type=float, metavar='PERCENT',
-        help='percent of alignment coverage of blast result')
     filters_parser.add_argument(
         '--best-n-hits', type=int, default=float('inf'),
         help=('For each query sequence, filter out all but the best N hits. '
@@ -620,7 +557,6 @@ def action(args):
                'mismatch': float},
         usecols=[col for col in columns if col in usecols],
         names=None if args.has_header else columns,
-        header=0 if args.has_header else None,
         sep=',' if args.csv else '\t',
         nrows=args.limit)
 
@@ -650,17 +586,6 @@ def action(args):
 
     log.info('successfully loaded {} blast results for {} query '
              'sequences'.format(len(blast_results), len(qseqids)))
-
-    # calclute global coverage if no qcovs and qstart, qend and qlen present
-    if ('qcovs' not in blast_results.columns and
-        all(col in blast_results.columns
-            for col in ['qstart', 'qend', 'qlen'])):
-        log.info('calculating global qcovs')
-        blast_results['qcovs'] = (
-            (blast_results['qend'] -
-                blast_results['qstart']) / blast_results['qlen'])
-
-    blast_results = raw_filtering(blast_results)
 
     # remove no blast hits
     # no_blast_results will be added back later but we do not
