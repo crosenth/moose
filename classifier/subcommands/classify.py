@@ -568,7 +568,7 @@ def action(args):
                    'pident': float,
                    'qcovs': float,
                    'mismatch': float},
-            names=args.columns)
+            names=args.columns.split(','))
 
     if blast_results.empty:
         log.info('blast results empty, exiting.')
