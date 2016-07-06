@@ -33,7 +33,7 @@ def build_parser(parser):
         '--columns',
         help=('if no header specify columns names'))
     blast_parser.add_argument(
-        '--csv', action='store_true', help='default: tabular')
+        '--tsv', action='store_true', help='default: csv')
 
     outs_parser = parser.add_argument_group('output options')
     outs_parser.add_argument(
@@ -56,7 +56,7 @@ def action(args):
                'qend': int,
                'qcovs': float},
         names=args.columns,
-        sep=',' if args.csv else '\t')
+        sep='\t' if args.tsv else ',')
 
     if not all(q in blast.columns for q in ['qstart', 'qend', 'qlen']):
         sys.exit('blast input must have columns [qstart qend qlen]')
@@ -68,4 +68,4 @@ def action(args):
         args.out,
         header=not bool(args.columns),
         index=False,
-        sep=',' if args.csv else '\t')
+        sep='\t' if args.tsv else ',')

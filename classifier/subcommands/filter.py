@@ -40,12 +40,17 @@ def build_parser(parser):
         '--limit',
         help=('take head number of lines'))
 
-    blast_parser = parser.add_argument_group('blast input options')
-    blast_parser.add_argument(
-        '--columns',
-        help=('if no header specify columns names'))
-    blast_parser.add_argument(
-        '--csv', action='store_true', help='default: tabular')
+    header_parser = parser.add_argument_group(
+        title='alignment input header-less options',
+        description=('assumed comma-seperated with header if not specified'))
+    columns_parser = header_parser.add_mutually_exclusive_group(required=False)
+    columns_parser.add_argument(
+        '--blast6in', '-b',
+        action='store_true',
+        help=('header-less blast-like tab-separated input'))
+    columns_parser.add_argument(
+        '--columns', '-c',
+        help=('specify columns for header-less comma-seperated values'))
 
     outs_parser = parser.add_argument_group('output options')
     outs_parser.add_argument(
@@ -106,20 +111,26 @@ def raw_filtering(blast_results, min_coverage=None,
 
 
 def action(args):
-    blast = pandas.read_csv(
-        args.blast,
-        dtype={'qseqid': str,
-               'sseqid': str,
-               'pident': float,
-               'qcovs': float,
-               'mismatch': float,
-               'qstart': int,
-               'qlen': int,
-               'qend': int,
-               'qcovs': float},
-        names=args.columns,
-        sep=',' if args.csv else '\t',
-        limit=args.limit)
+    log.info('loading alignment file')
+    if args.blast6in:
+        blast = pandas.read_csv(
+            args.blast,
+            sep='\t',
+            names=['qseqid,sseqid,pident,length,mismatch,gapopen,'
+                   'qstart,qend,sstart,send,evalue,bitscore'],
+            dtype={'qseqid': str,
+                   'sseqid': str,
+                   'pident': float,
+                   'mismatch': float})
+    else:
+        blast = pandas.read_csv(
+            args.blast,
+            dtype={'qseqid': str,
+                   'sseqid': str,
+                   'pident': float,
+                   'qcovs': float,
+                   'mismatch': float},
+            names=args.columns)
 
     if args.min_qcovs:
         blast_len = len(blast)
@@ -144,6 +155,6 @@ def action(args):
 
     blast.to_csv(
         args.out,
-        header=not bool(args.columns),
-        index=False,
-        sep=',' if args.csv else '\t')
+        sep='\t' if args.blast6in else ',',
+        header=not (args.blast6in or bool(args.columns)),
+        index=False)

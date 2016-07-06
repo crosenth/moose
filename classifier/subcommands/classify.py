@@ -447,37 +447,42 @@ def get_compression(io):
 def build_parser(parser):
     # required inputs
     parser.add_argument(
-        'blast', help='tabular blast file of query and subject hits')
+        'blast',
+        help=('alignment file of query and '
+              'subject hits with optional header'))
     parser.add_argument(
         'seq_info', help='File mapping reference seq name to tax_id')
     parser.add_argument(
         'taxonomy', help='Table defining the taxonomy for each tax_id')
 
-    blast_parser = parser.add_argument_group('blast input options')
-    blast_parser.add_argument(
-        '--columns',
-        default=('qseqid,sseqid,pident,length,mismatch,'
-                 'gapopen,qstart,qend,sstart,send,evalue,bitscore'),
-        help=('column specifiers. global query coverage can be '
-              'calculated by including the qstart, qend and qlen specifiers. '
-              'column "mismatch will filter out all but the best N hits based '
-              'on the number of mismatches. [%(default)s]'))
-    blast_parser.add_argument(
-        '--csv', action='store_true', help='default: tabular')
+    blast_parser = parser.add_argument_group(
+        title='alignment input header-less options',
+        description=('assumed comma-seperated with header if not specified'))
+    columns_parser = blast_parser.add_mutually_exclusive_group(required=False)
+    columns_parser.add_argument(
+        '--blast6in', '-b',
+        action='store_true',
+        help=('header-less blast-like tab-separated input'))
+    columns_parser.add_argument(
+        '--columns', '-c',
+        help=('specify columns for header-less comma-seperated values'))
 
-    filters_parser = parser.add_argument_group('blast qseqid filtering options')
+    filters_parser = parser.add_argument_group('qseqid filtering options')
     filters_parser.add_argument(
         '--min-cluster-size', default=1, metavar='INTEGER', type=int,
         help=('minimum cluster size to include '
               'in classification output [%(default)s]'))
     filters_parser.add_argument(
         '--best-n-hits', type=int, default=float('inf'),
-        help=('For each query sequence, filter out all but the best N hits. '
+        help=('For each qseqid sequence, filter out all but the best N hits. '
               'Used in conjunction with blast "mismatch" column.'))
 
     assignment_parser = parser.add_argument_group('assignment options')
     assignment_parser.add_argument(
-        '--starred', default=100.0, metavar='PERCENT', type=float,
+        '--starred',
+        default=100.0,
+        metavar='PERCENT',
+        type=float,
         help=('Names of organisms for which at least one reference '
               'sequence has pairwise identity with a query sequence of at '
               'least PERCENT will be marked with an asterisk [%(default)s]'))
@@ -489,12 +494,14 @@ def build_parser(parser):
         '--split-condensed-assignments',
         action='store_true',
         dest='threshold_assignments',
-        help=('Do not combine condensed identical assignments'))
+        help=('Group final assignment classifications '
+              'before assigning condensed taxonomic ids'))
 
     # optional inputs
     opts_parser = parser.add_argument_group('other input options')
     opts_parser.add_argument(
-        '--copy-numbers', metavar='CSV',
+        '--copy-numbers',
+        metavar='CSV',
         help=('Estimated 16s rRNA gene copy number for each tax_ids '
               '(CSV file with columns: tax_id, median)'))
     opts_parser.add_argument(
@@ -515,8 +522,10 @@ def build_parser(parser):
 
     outs_parser = parser.add_argument_group('output options')
     outs_parser.add_argument(
-        '--details-full', action='store_true',
-        help='do not limit out_details to only larget cluster per assignment')
+        '--details-full',
+        action='store_true',
+        help=('do not limit out_details to largest '
+              'cluster per assignment [%(default)s]'))
     outs_parser.add_argument(
         '--include-ref-rank', action='append', default=[],
         help=('Given a single rank (species,genus,etc), '
@@ -529,7 +538,7 @@ def build_parser(parser):
         help=('Hits that were below the best-rank threshold '
               'will be included in the details'))
     outs_parser.add_argument(
-        '-O', '--details-out',
+        '--details-out',
         metavar='FILE',
         help='Optional details of taxonomic assignments.')
     outs_parser.add_argument(
@@ -540,25 +549,26 @@ def build_parser(parser):
 
 
 def action(args):
-    # for debugging:
-    # pd.set_option('display.max_columns', None)
-    # pd.set_option('display.max_rows', None)
-
-    columns = args.columns.split(',')
-    usecols = ['qseqid', 'sseqid', 'pident', 'qcovs', 'mismatch']
-
-    log.info('loading blast results')
-    blast_results = pd.read_csv(
-        args.blast,
-        dtype={'qseqid': str,
-               'sseqid': str,
-               'pident': float,
-               'qcovs': float,
-               'mismatch': float},
-        usecols=[col for col in columns if col in usecols],
-        names=None if args.has_header else columns,
-        sep=',' if args.csv else '\t',
-        nrows=args.limit)
+    log.info('loading alignment file')
+    if args.blast6in:
+        blast_results = pd.read_csv(
+            args.blast,
+            sep='\t',
+            names=['qseqid,sseqid,pident,length,mismatch,gapopen,'
+                   'qstart,qend,sstart,send,evalue,bitscore'],
+            dtype={'qseqid': str,
+                   'sseqid': str,
+                   'pident': float,
+                   'mismatch': float})
+    else:
+        blast_results = pd.read_csv(
+            args.blast,
+            dtype={'qseqid': str,
+                   'sseqid': str,
+                   'pident': float,
+                   'qcovs': float,
+                   'mismatch': float},
+            names=args.columns)
 
     if blast_results.empty:
         log.info('blast results empty, exiting.')
