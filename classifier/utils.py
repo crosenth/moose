@@ -16,7 +16,18 @@
 import bz2
 import gzip
 import itertools
+import os
 import sys
+
+
+def get_compression(io):
+    if io is sys.stdout:
+        compression = None
+    else:
+        compress_ops = {'.gz': 'gzip', '.bz2': 'bz2'}
+        ext = os.path.splitext(io)[-1]
+        compression = compress_ops.get(ext, None)
+    return compression
 
 
 def opener(mode='r'):
