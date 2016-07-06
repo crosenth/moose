@@ -187,7 +187,7 @@ import logging
 import pandas as pd
 import math
 
-from classifier import sequtils, _data as datadir
+from classifier import utils, sequtils, _data as datadir
 
 log = logging.getLogger(__name__)
 
@@ -434,16 +434,6 @@ def join_thresholds(df, thresholds, ranks):
     return with_thresholds
 
 
-def get_compression(io):
-    if io is sys.stdout:
-        compression = None
-    else:
-        compress_ops = {'.gz': 'gzip', '.bz2': 'bz2'}
-        ext = os.path.splitext(io)[-1]
-        compression = compress_ops.get(ext, None)
-    return compression
-
-
 def build_parser(parser):
     # required inputs
     parser.add_argument(
@@ -556,19 +546,12 @@ def action(args):
             sep='\t',
             names=['qseqid,sseqid,pident,length,mismatch,gapopen,'
                    'qstart,qend,sstart,send,evalue,bitscore'],
-            dtype={'qseqid': str,
-                   'sseqid': str,
-                   'pident': float,
-                   'mismatch': float})
+            dtype=sequtils.DTYPES)
     else:
         blast_results = pd.read_csv(
             args.blast,
-            dtype={'qseqid': str,
-                   'sseqid': str,
-                   'pident': float,
-                   'qcovs': float,
-                   'mismatch': float},
-            names=args.columns.split(','))
+            dtype=sequtils.DTYPES,
+            names=args.columns.split(',') if args.columns else None)
 
     if blast_results.empty:
         log.info('blast results empty, exiting.')
@@ -919,7 +902,7 @@ def action(args):
 
         blast_results.to_csv(
             args.details_out,
-            compression=get_compression(args.details_out),
+            compression=utils.get_compression(args.details_out),
             columns=details_columns,
             header=True,
             index=False,
@@ -933,4 +916,4 @@ def action(args):
         args.out,
         index=True,
         float_format='%.2f',
-        compression=get_compression(args.out))
+        compression=utils.get_compression(args.out))
