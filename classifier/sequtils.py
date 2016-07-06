@@ -25,6 +25,23 @@ RANKS = ['root', 'superkingdom', 'phylum', 'class',
          'order', 'family', 'genus', 'species']
 
 
+DTYPES = {
+    'qseqid': str,
+    'sseqid': str,
+    'pident': float,
+    'mismatch': float,
+    'qstart': int,
+    'qend': int,
+    'qlen': int,
+    'gapopen': int,
+    'sstart': int,
+    'send': int,
+    'evalue': float,
+    'bitscore': int,
+    'length': int,
+    'qcovs': float}
+
+
 def condense_ids(assignments,
                  taxonomy,
                  ranks=RANKS,
