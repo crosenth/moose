@@ -13,6 +13,10 @@
 #    You should have received a copy of the GNU General Public License
 #    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
 
+# TODO: generate usage from sphinx - can run arbitrary code from
+# within sphinx to generate a file containing help text, then include
+# that in compiled docs
+
 """Classify sequences by grouping blast output by matching taxonomic names
 
 Optional grouping by specimen and query sequences
@@ -81,7 +85,11 @@ blast_file
 ==========
 
 A csv file with columns **qseqid**, **sseqid**, **pident**,
-**qstart**, **qend**, **qlen** and **qcovs**.
+**qstart**, **qend**, **qlen** and **qcovs**. Additional columns may
+be present if a header is provided; these will be ignored but will
+appear in the detailed output.
+
+# TODO - remove qcovs
 
 .. note:: The actual header is optional if using default blast out format but
           if present make sure to use the --has-header switch
@@ -178,6 +186,7 @@ Known bugs
 Tax_ids of valid Blast hits (hits that meet their rank thresholds) may be
 assigned tax_ids of a higher threshold that *could* represent invalid tax_ids
 (tax_ids that may *not* have passed the rank threshold).
+
 """
 
 import itertools
@@ -651,7 +660,7 @@ def build_parser(parser):
         '--columns', '-c',
         help=('specify columns for header-less comma-seperated values'))
 
-    filters_parser = parser.add_argument_group('qseqid filtering options')
+    filters_parser = parser.add_argument_group('filtering options')
     filters_parser.add_argument(
         '--min-cluster-size', default=1, metavar='INTEGER', type=int,
         help=('minimum cluster size to include '
@@ -660,6 +669,12 @@ def build_parser(parser):
         '--best-n-hits', type=int, default=float('inf'),
         help=('For each qseqid sequence, filter out all but the best N hits. '
               'Used in conjunction with blast "mismatch" column.'))
+
+    # TODO: add subcommand --use-qcovs, default False, indicating that
+    # "qcovs" column should be used directly; by default, coverage is
+    # calculated from other data
+
+    # TODO - move options from filter here; don't need that as a separate subcommand
 
     assignment_parser = parser.add_argument_group('assignment options')
     assignment_parser.add_argument(

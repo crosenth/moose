@@ -30,9 +30,9 @@ def build_parser(parser):
     parser.add_argument(
         'blast', help='tabular blast file of query and subject hits')
     parser.add_argument(
-        '--min-qcovs',
+        '--min-qcovs', default=90.0,
         type=float,
-        help=('miminum coverage in blast results'))
+        help=('miminum coverage in blast results [%(default)s]'))
     parser.add_argument(
         '--min-pident',
         type=float,
