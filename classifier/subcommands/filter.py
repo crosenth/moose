@@ -14,7 +14,7 @@
 #    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Filter blast results by qcovs or pident given minimum thresholds
+Filter blast results by qcovs or pident given thresholds
 """
 
 import sys
