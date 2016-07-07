@@ -199,489 +199,6 @@ RANKS = ['root', 'superkingdom', 'phylum', 'class',
          'order', 'family', 'genus', 'species']
 
 
-def condense(assignments,
-             taxonomy,
-             ranks=RANKS,
-             floor_rank=None,
-             ceiling_rank=None,
-             max_size=3,
-             rank_thresholds={}):
-    """
-    assignments = [tax_ids...]
-    taxonomy = {taxid:taxonomy}
-
-    Functionality: Group items into taxonomic groups given max rank sizes.
-    """
-
-    floor_rank = floor_rank or ranks[-1]
-    ceiling_rank = ceiling_rank or ranks[0]
-
-    if not taxonomy:
-        raise TypeError('taxonomy must not be empty or NoneType')
-
-    if floor_rank not in ranks:
-        msg = '{} not in ranks: {}'.format(floor_rank, ranks)
-        raise TypeError(msg)
-
-    if ceiling_rank not in ranks:
-        msg = '{} not in ranks: {}'.format(ceiling_rank, ranks)
-        raise TypeError(msg)
-
-    if ranks.index(floor_rank) < ranks.index(ceiling_rank):
-        msg = '{} cannot be lower rank than {}'.format(
-            ceiling_rank, floor_rank)
-        raise TypeError(msg)
-
-    # set rank to ceiling
-    try:
-        assignments = {a: taxonomy[a][ceiling_rank] for a in assignments}
-    except KeyError:
-        print assignments
-        error = ('Assignment id not found in taxonomy.')
-        raise KeyError(error)
-
-    def walk_taxtree(groups, ceiling_rank=ceiling_rank, max_size=max_size):
-        new_groups = {}
-
-        for a, r in groups.items():
-            new_groups[a] = taxonomy[a][ceiling_rank] or r
-
-        num_groups = len(set(new_groups.values()))
-
-        if rank_thresholds.get(ceiling_rank, max_size) < num_groups:
-            return groups
-
-        groups = new_groups
-
-        # return if we hit the floor
-        if ceiling_rank == floor_rank:
-            return groups
-
-        # else move down a rank
-        ceiling_rank = ranks[ranks.index(ceiling_rank) + 1]
-
-        # recurse each branch down the tax tree
-        for _, g in utils.groupbyl(groups.items(), operator.itemgetter(1)):
-            g = walk_taxtree(
-                dict(g), ceiling_rank, max_size - num_groups + 1)
-            groups.update(g)
-
-        return groups
-
-    return walk_taxtree(assignments)
-
-
-def compound_assignment(assignments, taxonomy):
-    """
-    Create taxonomic names based on 'assignmnets', which are a set of
-    two-tuples: {(tax_id, is_starred), ...} where each tax_id is a key
-    into taxdict, and is_starred is a boolean indicating whether at
-    least one reference sequence had a parirwise alignment identity
-    score meeting some thresholed. 'taxdict' is a dictionary keyed by
-    tax_id and returning a dict of taxonomic data corresponding to a
-    row from the taxonomy file. If 'include_stars' is False, ignore
-    the second element of each tuple in 'assignments' and do not
-    include asterisks in the output names.
-    assignments = [(tax_id, is_starred),...]
-    taxonomy = {taxid:taxonomy}
-    Functionality: see format_taxonomy
-    """
-
-    if not taxonomy:
-        raise TypeError('taxonomy must not be empty or NoneType')
-
-    assignments = ((taxonomy[i]['tax_name'], a) for i, a in assignments)
-    assignments = zip(*assignments)
-
-    return format_taxonomy(*assignments, asterisk='*')
-
-
-def format_taxonomy(names, selectors, asterisk='*'):
-    """
-    Create a friendly formatted string of taxonomy names. Names will
-    have an asterisk value appended *only* if the cooresponding
-    element in the selectors evaluates to True.
-    """
-
-    names = itertools.izip_longest(names, selectors)
-    names = ((n, asterisk if s else '')
-             for n, s in names)  # add asterisk to selected names
-    names = set(names)
-    names = sorted(names)  # sort by the name plus asterisk
-    names = itertools.groupby(names, key=operator.itemgetter(0))  # group by just the names
-    # prefer asterisk names which will be at the bottom
-    names = (list(g)[-1] for _, g in names)
-    names = (n + a for n, a in names)  # combine names with asterisks
-    # assume species names have exactly two words
-
-    def is_species(s):
-        return len(s.split()) == 2
-
-    names = sorted(names, key=is_species)
-    names = itertools.groupby(names, key=is_species)
-
-    tax = []
-
-    for species, assigns in names:
-        if species:
-            # take the species word and combine them with a '/'
-            assigns = (a.split() for a in assigns)
-            # group by genus name
-            assigns = itertools.groupby(assigns, key=operator.itemgetter(0))
-            assigns = ((k, map(operator.itemgetter(1), g))
-                       for k, g in assigns)  # get a list of the species names
-            assigns = ('{} {}'.format(k, '/'.join(g))
-                       for k, g in assigns)  # combine species names with '/'
-
-        tax.extend(assigns)
-
-    return ';'.join(sorted(tax))
-
-
-def round_up(x):
-    """round up any x < 0.01
-    """
-    return max(0.01, x)
-
-
-def star(df, starred):
-    """Assign boolean if any items in the
-    dataframe are above the star threshold.
-    """
-
-    df['starred'] = df.pident.apply(lambda x: x >= starred).any()
-    return df
-
-
-def condense_ids(
-        df, tax_dict, ranks, max_group_size, threshold_assignments=False):
-    """
-    Create mapping from tax_id to its condensed id.  Also creates the
-    assignment hash on either the condensed_id or assignment_tax_id decided
-    by the --split-condensed-assignments switch.
-
-    By taking a hash of the set (frozenset) of ids the qseqid is given a
-    unique identifier (the hash).  Later, we will use this hash and
-    assign an assignment name based on either the set of condensed_ids or
-    assignment_tax_ids.  The modivation for using a hash rather than
-    the actual assignment text for grouping is that the assignment text
-    can contains extra annotations that are independent of which
-    assignment group a qseqid belongs to such as a 100% id star.
-    """
-
-    condensed = condense(
-        df[ASSIGNMENT_TAX_ID].unique(),
-        tax_dict,
-        ranks=ranks,
-        max_size=max_group_size)
-
-    condensed = pd.DataFrame(
-        condensed.items(),
-        columns=[ASSIGNMENT_TAX_ID, 'condensed_id'])
-    condensed = condensed.set_index(ASSIGNMENT_TAX_ID)
-
-    if threshold_assignments:
-        assignment_hash = hash(frozenset(condensed.index.unique()))
-    else:
-        assignment_hash = hash(frozenset(condensed['condensed_id'].unique()))
-
-    condensed['assignment_hash'] = assignment_hash
-    return df.join(condensed, on=ASSIGNMENT_TAX_ID)
-
-
-def assign(df, tax_dict):
-    """Create str assignment based on tax_ids str and starred boolean.
-    """
-
-    ids_stars = df.groupby(by=['condensed_id', 'starred']).groups.keys()
-    df['assignment'] = compound_assignment(ids_stars, tax_dict)
-    return df
-
-
-def assignment_id(df):
-    """Resets and drops the current dataframe's
-    index and sets it to the assignment_hash
-
-    assignment_id is treated as a string identifier to account
-    for hits in details with no assignment or assignment_id
-    """
-    df = df.reset_index(drop=True)  # specimen is retained in the group key
-    df.index.name = 'assignment_id'
-    df.index = df.index.astype(str)
-    return df
-
-
-def best_rank(s, ranks):
-    """Create aggregate columns for assignments.
-
-    `ranks' are sorted with less specific first for example:
-
-    ['root', 'kingdom', 'phylum', 'order', 'family',
-     'genus', 'species_group', 'species']
-
-    so when sorting the indexes the most specific
-    rank will be in the iloc[-1] location
-    """
-
-    value_counts = s.value_counts()
-    if len(value_counts) == 0:
-        # [no blast result]
-        return None
-    else:
-        def specificity(r):
-            return ranks.index(r) if r in ranks else -1
-        majority_rank = value_counts[value_counts == value_counts.max()]
-        majority_rank.name = 'rank'
-        majority_rank = majority_rank.to_frame()
-        majority_rank['specificity'] = majority_rank['rank'].apply(specificity)
-        majority_rank = majority_rank.sort_values(by=['specificity'])
-        # most precise rank is at the highest index (-1)
-        return majority_rank.iloc[-1].name
-
-
-def find_tax_id(series, valids, r, ranks):
-    """Return the most taxonomic specific tax_id available for the given
-    Series.  If a tax_id is already present in valids[r] then return None.
-    """
-
-    index = ranks.index(r)
-    series = series[ranks[index:]]
-    series = series[~series.isnull()]
-    found = series.head(n=1)
-    key = found.index.values[0]
-    value = found.values[0]
-    return value if value not in valids[key].unique() else None
-
-
-def select_valid_hits(df, ranks):
-    """Return valid hits of the most specific rank that passed their
-    corresponding rank thresholds.  Hits that pass their rank thresholds
-    but do not have a tax_id at that rank will be bumped to a less specific
-    rank id and varified as a unique tax_id.
-    """
-
-    for r in ranks:
-        thresholds = df['{}_threshold'.format(r)]
-        pidents = df['pident']
-        valid = df[thresholds < pidents]
-
-        if valid.empty:
-            # Move to higher rank
-            continue
-
-        tax_ids = valid[r]
-        na_ids = tax_ids.isnull()
-
-        # Occasionally tax_ids will be missing at a certain rank.
-        # If so use the next less specific tax_id available
-        if na_ids.all():
-            continue
-
-        if na_ids.any():
-            # bump up missing taxids
-            have_ids = valid[tax_ids.notnull()]
-            found_ids = valid[na_ids].apply(
-                find_tax_id, args=(have_ids, r, ranks), axis=1)
-            tax_ids = have_ids[r].append(found_ids)
-
-        valid[ASSIGNMENT_TAX_ID] = tax_ids
-        valid['assignment_threshold'] = thresholds
-        # return notnull() assignment_threshold valid values
-        return valid[valid[ASSIGNMENT_TAX_ID].notnull()]
-
-    # nothing passed
-    df[ASSIGNMENT_TAX_ID] = None
-    df['assignment_threshold'] = None
-
-    return pd.DataFrame(columns=df.columns)
-
-
-def calculate_pct_references(df, pct_reference):
-    reference_count = df[['tax_id']].drop_duplicates()
-    reference_count = reference_count.join(pct_reference, on='tax_id')
-    reference_count = reference_count['count'].sum()
-    sseqid_count = float(len(df['sseqid'].drop_duplicates()))
-    df['pct_reference'] = sseqid_count / reference_count
-    return df
-
-
-def pct(s):
-    """Calculate series pct something
-    """
-
-    return s / s.sum() * 100
-
-
-def load_rank_thresholds(
-        path=os.path.join(datadir, 'rank_thresholds.csv'), usecols=None):
-    """Load a rank-thresholds file.  If no argument is specified the default
-    rank_threshold_defaults.csv file will be loaded.
-    """
-
-    return pd.read_csv(
-        path,
-        comment='#',
-        usecols=['tax_id'] + usecols,
-        dtype=dict(tax_id=str)).set_index('tax_id')
-
-
-def copy_corrections(copy_numbers, blast_results, user_file=None):
-    copy_numbers = pd.read_csv(
-        copy_numbers,
-        dtype=dict(tax_id=str, median=float),
-        usecols=['tax_id', 'median']).set_index('tax_id')
-
-    # get root out (taxid: 1) and set it as the default correction value
-
-    # set index nana (no blast result) to the default value
-    default = copy_numbers.get_value('1', 'median')
-    default_entry = pd.DataFrame(default, index=[None], columns=['median'])
-    copy_numbers = copy_numbers.append(default_entry)
-
-    # do our copy number correction math
-    corrections = blast_results[
-        [ASSIGNMENT_TAX_ID, 'specimen', 'assignment_hash']]
-    corrections = corrections.drop_duplicates()
-    corrections = corrections.set_index(ASSIGNMENT_TAX_ID)
-    corrections = corrections.join(copy_numbers)
-    # any tax_id not present will receive default tax_id
-    corrections['median'] = corrections['median'].fillna(default)
-    corrections = corrections.groupby(
-        by=['specimen', 'assignment_hash'], sort=False)
-    corrections = corrections['median'].mean()
-    return corrections
-
-
-def join_thresholds(df, thresholds, ranks):
-    """Thresholds are matched to thresholds by rank id.
-
-    If a rank id is not present in the thresholds then the next specific
-    rank id is used all the way up to `root'.  If the root id still does
-    not match then a warning is issued with the taxname and the blast hit
-    is dropped.
-    """
-    with_thresholds = pd.DataFrame(columns=df.columns)  # temp DFrame
-
-    for r in ranks:
-        with_thresholds = with_thresholds.append(
-            df.join(thresholds, on=r, how='inner'))
-        no_threshold = df[~df.index.isin(with_thresholds.index)]
-        df = no_threshold
-
-    # issue warning messages for everything that did not join
-    if len(df) > 0:
-        tax_names = df['tax_name'].drop_duplicates()
-        msg = ('dropping blast hit `{}\', no valid '
-               'taxonomic threshold information found')
-        tax_names.apply(lambda x: log.warn(msg.format(x)))
-
-    return with_thresholds
-
-
-def build_parser(parser):
-    # required inputs
-    parser.add_argument(
-        'blast',
-        help=('alignment file of query and '
-              'subject hits with optional header'))
-    parser.add_argument(
-        'seq_info', help='File mapping reference seq name to tax_id')
-    parser.add_argument(
-        'taxonomy', help='Table defining the taxonomy for each tax_id')
-
-    blast_parser = parser.add_argument_group(
-        title='alignment input header-less options',
-        description=('assumed comma-seperated with header if not specified'))
-    columns_parser = blast_parser.add_mutually_exclusive_group(required=False)
-    columns_parser.add_argument(
-        '--blast6in', '-b',
-        action='store_true',
-        help=('header-less blast-like tab-separated input'))
-    columns_parser.add_argument(
-        '--columns', '-c',
-        help=('specify columns for header-less comma-seperated values'))
-
-    filters_parser = parser.add_argument_group('qseqid filtering options')
-    filters_parser.add_argument(
-        '--min-cluster-size', default=1, metavar='INTEGER', type=int,
-        help=('minimum cluster size to include '
-              'in classification output [%(default)s]'))
-    filters_parser.add_argument(
-        '--best-n-hits', type=int, default=float('inf'),
-        help=('For each qseqid sequence, filter out all but the best N hits. '
-              'Used in conjunction with blast "mismatch" column.'))
-
-    assignment_parser = parser.add_argument_group('assignment options')
-    assignment_parser.add_argument(
-        '--starred',
-        default=100.0,
-        metavar='PERCENT',
-        type=float,
-        help=('Names of organisms for which at least one reference '
-              'sequence has pairwise identity with a query sequence of at '
-              'least PERCENT will be marked with an asterisk [%(default)s]'))
-    assignment_parser.add_argument(
-        '--max-group-size', metavar='INTEGER', default=3, type=int,
-        help=('group multiple target-rank assignments that excede a '
-              'threshold to a higher rank [%(default)s]'))
-    assignment_parser.add_argument(
-        '--split-condensed-assignments',
-        action='store_true',
-        dest='threshold_assignments',
-        help=('Group final assignment classifications '
-              'before assigning condensed taxonomic ids'))
-
-    # optional inputs
-    opts_parser = parser.add_argument_group('other input options')
-    opts_parser.add_argument(
-        '--copy-numbers',
-        metavar='CSV',
-        help=('Estimated 16s rRNA gene copy number for each tax_ids '
-              '(CSV file with columns: tax_id, median)'))
-    opts_parser.add_argument(
-        '--rank-thresholds', metavar='CSV', help='Columns [tax_id,ranks...]')
-    opts_group = opts_parser.add_mutually_exclusive_group(required=False)
-    opts_group.add_argument(
-        '--specimen', metavar='LABEL', help='Single group label for reads')
-    opts_group.add_argument(
-        '--specimen-map', metavar='CSV',
-        help=('CSV file with columns (name, specimen) '
-              'assigning sequences to groups.'))
-    opts_parser.add_argument(
-        '-w', '--weights', metavar='CSV',
-        help=('Optional headless csv file with columns \'seqname\', '
-              '\'count\' providing weights for each query sequence described  '
-              'in the blast input (used, for example, to describe cluster '
-              'sizes for corresponding cluster centroids).'))
-
-    outs_parser = parser.add_argument_group('output options')
-    outs_parser.add_argument(
-        '--details-full',
-        action='store_true',
-        help=('do not limit out_details to largest '
-              'cluster per assignment [%(default)s]'))
-    outs_parser.add_argument(
-        '--include-ref-rank', action='append', default=[],
-        help=('Given a single rank (species,genus,etc), '
-              'include each reference '
-              'sequence\'s tax_id as $\{rank\}_id and its taxonomic name as '
-              '$\{rank\}_name in details output'))
-    outs_parser.add_argument(
-        '--hits-below-threshold',
-        action='store_true',
-        help=('Hits that were below the best-rank threshold '
-              'will be included in the details'))
-    outs_parser.add_argument(
-        '--details-out',
-        metavar='FILE',
-        help='Optional details of taxonomic assignments.')
-    outs_parser.add_argument(
-        '-o', '--out',
-        default=sys.stdout,
-        metavar='FILE',
-        help="classification results [default: stdout]")
-
-
 def action(args):
     log.info('loading alignment file')
     if args.blast6in:
@@ -1059,3 +576,486 @@ def action(args):
         index=True,
         float_format='%.2f',
         compression=utils.get_compression(args.out))
+
+
+def assign(df, tax_dict):
+    """Create str assignment based on tax_ids str and starred boolean.
+    """
+
+    ids_stars = df.groupby(by=['condensed_id', 'starred']).groups.keys()
+    df['assignment'] = compound_assignment(ids_stars, tax_dict)
+    return df
+
+
+def assignment_id(df):
+    """Resets and drops the current dataframe's
+    index and sets it to the assignment_hash
+
+    assignment_id is treated as a string identifier to account
+    for hits in details with no assignment or assignment_id
+    """
+    df = df.reset_index(drop=True)  # specimen is retained in the group key
+    df.index.name = 'assignment_id'
+    df.index = df.index.astype(str)
+    return df
+
+
+def best_rank(s, ranks):
+    """Create aggregate columns for assignments.
+
+    `ranks' are sorted with less specific first for example:
+
+    ['root', 'kingdom', 'phylum', 'order', 'family',
+     'genus', 'species_group', 'species']
+
+    so when sorting the indexes the most specific
+    rank will be in the iloc[-1] location
+    """
+
+    value_counts = s.value_counts()
+    if len(value_counts) == 0:
+        # [no blast result]
+        return None
+    else:
+        def specificity(r):
+            return ranks.index(r) if r in ranks else -1
+        majority_rank = value_counts[value_counts == value_counts.max()]
+        majority_rank.name = 'rank'
+        majority_rank = majority_rank.to_frame()
+        majority_rank['specificity'] = majority_rank['rank'].apply(specificity)
+        majority_rank = majority_rank.sort_values(by=['specificity'])
+        # most precise rank is at the highest index (-1)
+        return majority_rank.iloc[-1].name
+
+
+def build_parser(parser):
+    # required inputs
+    parser.add_argument(
+        'blast',
+        help=('alignment file of query and '
+              'subject hits with optional header'))
+    parser.add_argument(
+        'seq_info', help='File mapping reference seq name to tax_id')
+    parser.add_argument(
+        'taxonomy', help='Table defining the taxonomy for each tax_id')
+
+    blast_parser = parser.add_argument_group(
+        title='alignment input header-less options',
+        description=('assumed comma-seperated with header if not specified'))
+    columns_parser = blast_parser.add_mutually_exclusive_group(required=False)
+    columns_parser.add_argument(
+        '--blast6in', '-b',
+        action='store_true',
+        help=('header-less blast-like tab-separated input'))
+    columns_parser.add_argument(
+        '--columns', '-c',
+        help=('specify columns for header-less comma-seperated values'))
+
+    filters_parser = parser.add_argument_group('qseqid filtering options')
+    filters_parser.add_argument(
+        '--min-cluster-size', default=1, metavar='INTEGER', type=int,
+        help=('minimum cluster size to include '
+              'in classification output [%(default)s]'))
+    filters_parser.add_argument(
+        '--best-n-hits', type=int, default=float('inf'),
+        help=('For each qseqid sequence, filter out all but the best N hits. '
+              'Used in conjunction with blast "mismatch" column.'))
+
+    assignment_parser = parser.add_argument_group('assignment options')
+    assignment_parser.add_argument(
+        '--starred',
+        default=100.0,
+        metavar='PERCENT',
+        type=float,
+        help=('Names of organisms for which at least one reference '
+              'sequence has pairwise identity with a query sequence of at '
+              'least PERCENT will be marked with an asterisk [%(default)s]'))
+    assignment_parser.add_argument(
+        '--max-group-size', metavar='INTEGER', default=3, type=int,
+        help=('group multiple target-rank assignments that excede a '
+              'threshold to a higher rank [%(default)s]'))
+    assignment_parser.add_argument(
+        '--split-condensed-assignments',
+        action='store_true',
+        dest='threshold_assignments',
+        help=('Group final assignment classifications '
+              'before assigning condensed taxonomic ids'))
+
+    # optional inputs
+    opts_parser = parser.add_argument_group('other input options')
+    opts_parser.add_argument(
+        '--copy-numbers',
+        metavar='CSV',
+        help=('Estimated 16s rRNA gene copy number for each tax_ids '
+              '(CSV file with columns: tax_id, median)'))
+    opts_parser.add_argument(
+        '--rank-thresholds', metavar='CSV', help='Columns [tax_id,ranks...]')
+    opts_group = opts_parser.add_mutually_exclusive_group(required=False)
+    opts_group.add_argument(
+        '--specimen', metavar='LABEL', help='Single group label for reads')
+    opts_group.add_argument(
+        '--specimen-map', metavar='CSV',
+        help=('CSV file with columns (name, specimen) '
+              'assigning sequences to groups.'))
+    opts_parser.add_argument(
+        '-w', '--weights', metavar='CSV',
+        help=('Optional headless csv file with columns \'seqname\', '
+              '\'count\' providing weights for each query sequence described  '
+              'in the blast input (used, for example, to describe cluster '
+              'sizes for corresponding cluster centroids).'))
+
+    outs_parser = parser.add_argument_group('output options')
+    outs_parser.add_argument(
+        '--details-full',
+        action='store_true',
+        help=('do not limit out_details to largest '
+              'cluster per assignment [%(default)s]'))
+    outs_parser.add_argument(
+        '--include-ref-rank', action='append', default=[],
+        help=('Given a single rank (species,genus,etc), '
+              'include each reference '
+              'sequence\'s tax_id as $\{rank\}_id and its taxonomic name as '
+              '$\{rank\}_name in details output'))
+    outs_parser.add_argument(
+        '--hits-below-threshold',
+        action='store_true',
+        help=('Hits that were below the best-rank threshold '
+              'will be included in the details'))
+    outs_parser.add_argument(
+        '--details-out',
+        metavar='FILE',
+        help='Optional details of taxonomic assignments.')
+    outs_parser.add_argument(
+        '-o', '--out',
+        default=sys.stdout,
+        metavar='FILE',
+        help="classification results [default: stdout]")
+
+
+def calculate_pct_references(df, pct_reference):
+    reference_count = df[['tax_id']].drop_duplicates()
+    reference_count = reference_count.join(pct_reference, on='tax_id')
+    reference_count = reference_count['count'].sum()
+    sseqid_count = float(len(df['sseqid'].drop_duplicates()))
+    df['pct_reference'] = sseqid_count / reference_count
+    return df
+
+
+def compound_assignment(assignments, taxonomy):
+    """
+    Create taxonomic names based on 'assignmnets', which are a set of
+    two-tuples: {(tax_id, is_starred), ...} where each tax_id is a key
+    into taxdict, and is_starred is a boolean indicating whether at
+    least one reference sequence had a parirwise alignment identity
+    score meeting some thresholed. 'taxdict' is a dictionary keyed by
+    tax_id and returning a dict of taxonomic data corresponding to a
+    row from the taxonomy file. If 'include_stars' is False, ignore
+    the second element of each tuple in 'assignments' and do not
+    include asterisks in the output names.
+    assignments = [(tax_id, is_starred),...]
+    taxonomy = {taxid:taxonomy}
+    Functionality: see format_taxonomy
+    """
+
+    if not taxonomy:
+        raise TypeError('taxonomy must not be empty or NoneType')
+
+    assignments = ((taxonomy[i]['tax_name'], a) for i, a in assignments)
+    assignments = zip(*assignments)
+
+    return format_taxonomy(*assignments, asterisk='*')
+
+
+def condense(assignments,
+             taxonomy,
+             ranks=RANKS,
+             floor_rank=None,
+             ceiling_rank=None,
+             max_size=3,
+             rank_thresholds={}):
+    """
+    assignments = [tax_ids...]
+    taxonomy = {taxid:taxonomy}
+
+    Functionality: Group items into taxonomic groups given max rank sizes.
+    """
+
+    floor_rank = floor_rank or ranks[-1]
+    ceiling_rank = ceiling_rank or ranks[0]
+
+    if not taxonomy:
+        raise TypeError('taxonomy must not be empty or NoneType')
+
+    if floor_rank not in ranks:
+        msg = '{} not in ranks: {}'.format(floor_rank, ranks)
+        raise TypeError(msg)
+
+    if ceiling_rank not in ranks:
+        msg = '{} not in ranks: {}'.format(ceiling_rank, ranks)
+        raise TypeError(msg)
+
+    if ranks.index(floor_rank) < ranks.index(ceiling_rank):
+        msg = '{} cannot be lower rank than {}'.format(
+            ceiling_rank, floor_rank)
+        raise TypeError(msg)
+
+    # set rank to ceiling
+    try:
+        assignments = {a: taxonomy[a][ceiling_rank] for a in assignments}
+    except KeyError:
+        print assignments
+        error = ('Assignment id not found in taxonomy.')
+        raise KeyError(error)
+
+    def walk_taxtree(groups, ceiling_rank=ceiling_rank, max_size=max_size):
+        new_groups = {}
+
+        for a, r in groups.items():
+            new_groups[a] = taxonomy[a][ceiling_rank] or r
+
+        num_groups = len(set(new_groups.values()))
+
+        if rank_thresholds.get(ceiling_rank, max_size) < num_groups:
+            return groups
+
+        groups = new_groups
+
+        # return if we hit the floor
+        if ceiling_rank == floor_rank:
+            return groups
+
+        # else move down a rank
+        ceiling_rank = ranks[ranks.index(ceiling_rank) + 1]
+
+        # recurse each branch down the tax tree
+        for _, g in utils.groupbyl(groups.items(), operator.itemgetter(1)):
+            g = walk_taxtree(
+                dict(g), ceiling_rank, max_size - num_groups + 1)
+            groups.update(g)
+
+        return groups
+
+    return walk_taxtree(assignments)
+
+
+def condense_ids(
+        df, tax_dict, ranks, max_group_size, threshold_assignments=False):
+    """
+    Create mapping from tax_id to its condensed id.  Also creates the
+    assignment hash on either the condensed_id or assignment_tax_id decided
+    by the --split-condensed-assignments switch.
+
+    By taking a hash of the set (frozenset) of ids the qseqid is given a
+    unique identifier (the hash).  Later, we will use this hash and
+    assign an assignment name based on either the set of condensed_ids or
+    assignment_tax_ids.  The modivation for using a hash rather than
+    the actual assignment text for grouping is that the assignment text
+    can contains extra annotations that are independent of which
+    assignment group a qseqid belongs to such as a 100% id star.
+    """
+
+    condensed = condense(
+        df[ASSIGNMENT_TAX_ID].unique(),
+        tax_dict,
+        ranks=ranks,
+        max_size=max_group_size)
+
+    condensed = pd.DataFrame(
+        condensed.items(),
+        columns=[ASSIGNMENT_TAX_ID, 'condensed_id'])
+    condensed = condensed.set_index(ASSIGNMENT_TAX_ID)
+
+    if threshold_assignments:
+        assignment_hash = hash(frozenset(condensed.index.unique()))
+    else:
+        assignment_hash = hash(frozenset(condensed['condensed_id'].unique()))
+
+    condensed['assignment_hash'] = assignment_hash
+    return df.join(condensed, on=ASSIGNMENT_TAX_ID)
+
+
+def copy_corrections(copy_numbers, blast_results, user_file=None):
+    copy_numbers = pd.read_csv(
+        copy_numbers,
+        dtype=dict(tax_id=str, median=float),
+        usecols=['tax_id', 'median']).set_index('tax_id')
+
+    # get root out (taxid: 1) and set it as the default correction value
+
+    # set index nana (no blast result) to the default value
+    default = copy_numbers.get_value('1', 'median')
+    default_entry = pd.DataFrame(default, index=[None], columns=['median'])
+    copy_numbers = copy_numbers.append(default_entry)
+
+    # do our copy number correction math
+    corrections = blast_results[
+        [ASSIGNMENT_TAX_ID, 'specimen', 'assignment_hash']]
+    corrections = corrections.drop_duplicates()
+    corrections = corrections.set_index(ASSIGNMENT_TAX_ID)
+    corrections = corrections.join(copy_numbers)
+    # any tax_id not present will receive default tax_id
+    corrections['median'] = corrections['median'].fillna(default)
+    corrections = corrections.groupby(
+        by=['specimen', 'assignment_hash'], sort=False)
+    corrections = corrections['median'].mean()
+    return corrections
+
+
+def find_tax_id(series, valids, r, ranks):
+    """Return the most taxonomic specific tax_id available for the given
+    Series.  If a tax_id is already present in valids[r] then return None.
+    """
+
+    index = ranks.index(r)
+    series = series[ranks[index:]]
+    series = series[~series.isnull()]
+    found = series.head(n=1)
+    key = found.index.values[0]
+    value = found.values[0]
+    return value if value not in valids[key].unique() else None
+
+
+def format_taxonomy(names, selectors, asterisk='*'):
+    """
+    Create a friendly formatted string of taxonomy names. Names will
+    have an asterisk value appended *only* if the cooresponding
+    element in the selectors evaluates to True.
+    """
+
+    names = itertools.izip_longest(names, selectors)
+    names = ((n, asterisk if s else '')
+             for n, s in names)  # add asterisk to selected names
+    names = set(names)
+    names = sorted(names)  # sort by the name plus asterisk
+    names = itertools.groupby(names, key=operator.itemgetter(0))  # group by just the names
+    # prefer asterisk names which will be at the bottom
+    names = (list(g)[-1] for _, g in names)
+    names = (n + a for n, a in names)  # combine names with asterisks
+    # assume species names have exactly two words
+
+    def is_species(s):
+        return len(s.split()) == 2
+
+    names = sorted(names, key=is_species)
+    names = itertools.groupby(names, key=is_species)
+
+    tax = []
+
+    for species, assigns in names:
+        if species:
+            # take the species word and combine them with a '/'
+            assigns = (a.split() for a in assigns)
+            # group by genus name
+            assigns = itertools.groupby(assigns, key=operator.itemgetter(0))
+            assigns = ((k, map(operator.itemgetter(1), g))
+                       for k, g in assigns)  # get a list of the species names
+            assigns = ('{} {}'.format(k, '/'.join(g))
+                       for k, g in assigns)  # combine species names with '/'
+
+        tax.extend(assigns)
+
+    return ';'.join(sorted(tax))
+
+
+def join_thresholds(df, thresholds, ranks):
+    """Thresholds are matched to thresholds by rank id.
+
+    If a rank id is not present in the thresholds then the next specific
+    rank id is used all the way up to `root'.  If the root id still does
+    not match then a warning is issued with the taxname and the blast hit
+    is dropped.
+    """
+    with_thresholds = pd.DataFrame(columns=df.columns)  # temp DFrame
+
+    for r in ranks:
+        with_thresholds = with_thresholds.append(
+            df.join(thresholds, on=r, how='inner'))
+        no_threshold = df[~df.index.isin(with_thresholds.index)]
+        df = no_threshold
+
+    # issue warning messages for everything that did not join
+    if len(df) > 0:
+        tax_names = df['tax_name'].drop_duplicates()
+        msg = ('dropping blast hit `{}\', no valid '
+               'taxonomic threshold information found')
+        tax_names.apply(lambda x: log.warn(msg.format(x)))
+
+    return with_thresholds
+
+
+def load_rank_thresholds(
+        path=os.path.join(datadir, 'rank_thresholds.csv'), usecols=None):
+    """Load a rank-thresholds file.  If no argument is specified the default
+    rank_threshold_defaults.csv file will be loaded.
+    """
+
+    return pd.read_csv(
+        path,
+        comment='#',
+        usecols=['tax_id'] + usecols,
+        dtype=dict(tax_id=str)).set_index('tax_id')
+
+
+def round_up(x):
+    """round up any x < 0.01
+    """
+    return max(0.01, x)
+
+
+def select_valid_hits(df, ranks):
+    """Return valid hits of the most specific rank that passed their
+    corresponding rank thresholds.  Hits that pass their rank thresholds
+    but do not have a tax_id at that rank will be bumped to a less specific
+    rank id and varified as a unique tax_id.
+    """
+
+    for r in ranks:
+        thresholds = df['{}_threshold'.format(r)]
+        pidents = df['pident']
+        valid = df[thresholds < pidents]
+
+        if valid.empty:
+            # Move to higher rank
+            continue
+
+        tax_ids = valid[r]
+        na_ids = tax_ids.isnull()
+
+        # Occasionally tax_ids will be missing at a certain rank.
+        # If so use the next less specific tax_id available
+        if na_ids.all():
+            continue
+
+        if na_ids.any():
+            # bump up missing taxids
+            have_ids = valid[tax_ids.notnull()]
+            found_ids = valid[na_ids].apply(
+                find_tax_id, args=(have_ids, r, ranks), axis=1)
+            tax_ids = have_ids[r].append(found_ids)
+
+        valid[ASSIGNMENT_TAX_ID] = tax_ids
+        valid['assignment_threshold'] = thresholds
+        # return notnull() assignment_threshold valid values
+        return valid[valid[ASSIGNMENT_TAX_ID].notnull()]
+
+    # nothing passed
+    df[ASSIGNMENT_TAX_ID] = None
+    df['assignment_threshold'] = None
+
+    return pd.DataFrame(columns=df.columns)
+
+
+def pct(s):
+    """Calculate series pct something
+    """
+
+    return s / s.sum() * 100
+
+
+def star(df, starred):
+    """Assign boolean if any items in the
+    dataframe are above the star threshold.
+    """
+
+    df['starred'] = df.pident.apply(lambda x: x >= starred).any()
+    return df
