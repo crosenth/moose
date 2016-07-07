@@ -21,6 +21,8 @@ import sys
 import logging
 import pandas
 
+from classifier import utils
+
 log = logging.getLogger(__name__)
 
 
@@ -55,7 +57,7 @@ def action(args):
                'qlen': int,
                'qend': int,
                'qcovs': float},
-        names=args.columns,
+        names=args.columns.split(',') if args.columns else None,
         sep='\t' if args.tsv else ',')
 
     if not all(q in blast.columns for q in ['qstart', 'qend', 'qlen']):
@@ -66,6 +68,8 @@ def action(args):
 
     blast.to_csv(
         args.out,
+        compression=utils.get_compression(args.out),
         header=not bool(args.columns),
         index=False,
+        float_format='%.2f',
         sep='\t' if args.tsv else ',')
