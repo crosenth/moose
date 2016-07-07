@@ -21,6 +21,8 @@ import sys
 import logging
 import pandas
 
+from classifier import utils, sequtils
+
 log = logging.getLogger(__name__)
 
 
@@ -29,12 +31,15 @@ def build_parser(parser):
         'blast', help='tabular blast file of query and subject hits')
     parser.add_argument(
         '--min-qcovs',
+        type=float,
         help=('miminum coverage in blast results'))
     parser.add_argument(
         '--min-pident',
+        type=float,
         help=('miminum coverage in blast results'))
     parser.add_argument(
         '--max-pident',
+        type=float,
         help=('miminum coverage in blast results'))
     parser.add_argument(
         '--limit',
@@ -118,19 +123,12 @@ def action(args):
             sep='\t',
             names=['qseqid,sseqid,pident,length,mismatch,gapopen,'
                    'qstart,qend,sstart,send,evalue,bitscore'],
-            dtype={'qseqid': str,
-                   'sseqid': str,
-                   'pident': float,
-                   'mismatch': float})
+            dtype=sequtils.DTYPES)
     else:
         blast = pandas.read_csv(
             args.blast,
-            dtype={'qseqid': str,
-                   'sseqid': str,
-                   'pident': float,
-                   'qcovs': float,
-                   'mismatch': float},
-            names=args.columns)
+            dtype=sequtils.DTYPES,
+            names=args.columns.split(',') if args.columns else None)
 
     if args.min_qcovs:
         blast_len = len(blast)
@@ -155,6 +153,8 @@ def action(args):
 
     blast.to_csv(
         args.out,
+        compression=utils.get_compression(args.out),
         sep='\t' if args.blast6in else ',',
         header=not (args.blast6in or bool(args.columns)),
+        float_format='%.2f',
         index=False)
