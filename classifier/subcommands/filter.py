@@ -21,7 +21,7 @@ import sys
 import logging
 import pandas
 
-from classifier import utils, sequtils
+from classifier import utils
 
 log = logging.getLogger(__name__)
 
@@ -123,11 +123,11 @@ def action(args):
             sep='\t',
             names=['qseqid,sseqid,pident,length,mismatch,gapopen,'
                    'qstart,qend,sstart,send,evalue,bitscore'],
-            dtype=sequtils.DTYPES)
+            dtype=utils.ALIGNMENT_DTYPES)
     else:
         blast = pandas.read_csv(
             args.blast,
-            dtype=sequtils.DTYPES,
+            dtype=utils.ALIGNMENT_DTYPES,
             names=args.columns.split(',') if args.columns else None)
 
     if args.min_qcovs:

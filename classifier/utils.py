@@ -16,8 +16,28 @@
 import bz2
 import gzip
 import itertools
+import logging
 import os
 import sys
+
+
+log = logging.getLogger(__name__)
+
+ALIGNMENT_DTYPES = {
+    'qseqid': str,
+    'sseqid': str,
+    'pident': float,
+    'mismatch': float,
+    'qstart': int,
+    'qend': int,
+    'qlen': int,
+    'gapopen': int,
+    'sstart': int,
+    'send': int,
+    'evalue': float,
+    'bitscore': int,
+    'length': int,
+    'qcovs': float}
 
 
 def get_compression(io):
