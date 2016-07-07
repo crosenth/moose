@@ -1,4 +1,4 @@
-# for development
+pandas
 sphinx
 ghp-import
 twine
