@@ -8,7 +8,7 @@ setuptools.setup(author='Chris Rosenthal',
                  packages=setuptools.find_packages(exclude=['tests']),
                  entry_points={'console_scripts':
                                {'classifier = classifier:main'}},
-                 version=classifier.version.version(),
+                 version=classifier.version(),
                  url='https://bitbucket.org/uwlabmed/classifier',
                  package_data={'classifier': ['data/*']},
                  install_requires=['pandas>=0.17.1'],
