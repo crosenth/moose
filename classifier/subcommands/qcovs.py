@@ -48,15 +48,7 @@ def build_parser(parser):
 def action(args):
     blast = pandas.read_csv(
         args.blast,
-        dtype={'qseqid': str,
-               'sseqid': str,
-               'pident': float,
-               'qcovs': float,
-               'mismatch': float,
-               'qstart': int,
-               'qlen': int,
-               'qend': int,
-               'qcovs': float},
+        dtype=utils.ALIGNMENT_DTYPES,
         names=args.columns.split(',') if args.columns else None,
         sep='\t' if args.tsv else ',')
 
