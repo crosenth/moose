@@ -37,7 +37,19 @@ ALIGNMENT_DTYPES = {
     'evalue': float,
     'bitscore': int,
     'length': int,
-    'qcovs': float}
+    'qcovs': float,
+    'specimen': str,
+    'assignment_id': str,
+    'tax_name': str,
+    'rank': str,
+    'assignment_tax_name': str,
+    'assignment_rank': str,
+    'pident': float,
+    'tax_id': str,
+    'assignment_tax_id': str,
+    'condensed_id': str,
+    'accession': str,
+    'qseqid': str}
 
 
 def get_compression(io):
