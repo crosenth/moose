@@ -244,6 +244,13 @@ def action(args):
     else:
         blast_results['specimen'] = blast_results['qseqid']  # by qseqid
 
+    if all(c in ['qstart', 'qend', 'qlen'] for c in blast_results.columns):
+        log.info('calculating qcovs')
+        blast_results = qcovs(blast_results)
+
+    log.info('filering results by pident and qcovs')
+    raw_filtering(blast_results, args.min_qcovs, args.max_pident, args.min_pident)
+
     # get a set of qseqids for identifying [no blast hits] after filtering
     qseqids = blast_results[['specimen', 'qseqid']].drop_duplicates()
 
@@ -662,13 +669,25 @@ def build_parser(parser):
 
     filters_parser = parser.add_argument_group('filtering options')
     filters_parser.add_argument(
+        '--best-n-hits', type=int, default=float('inf'),
+        help=('For each qseqid sequence, filter out all but the best N hits. '
+              'Used in conjunction with blast "mismatch" column.'))
+    filters_parser.add_argument(
+        '--max-pident',
+        type=float,
+        help=('miminum coverage in blast results'))
+    filters_parser.add_argument(
         '--min-cluster-size', default=1, metavar='INTEGER', type=int,
         help=('minimum cluster size to include '
               'in classification output [%(default)s]'))
     filters_parser.add_argument(
-        '--best-n-hits', type=int, default=float('inf'),
-        help=('For each qseqid sequence, filter out all but the best N hits. '
-              'Used in conjunction with blast "mismatch" column.'))
+        '--min-pident',
+        type=float,
+        help=('miminum coverage in blast results'))
+    filters_parser.add_argument(
+        '--min-qcovs', default=90.0,
+        type=float,
+        help=('miminum coverage in blast results [%(default)s]'))
 
     # TODO: add subcommand --use-qcovs, default False, indicating that
     # "qcovs" column should be used directly; by default, coverage is
@@ -818,7 +837,6 @@ def condense(assignments,
     try:
         assignments = {a: taxonomy[a][ceiling_rank] for a in assignments}
     except KeyError:
-        print assignments
         error = ('Assignment id not found in taxonomy.')
         raise KeyError(error)
 
@@ -1067,10 +1085,66 @@ def pct(s):
     return s / s.sum() * 100
 
 
+def qcovs(df):
+    df.loc[:, 'qcovs'] = (
+        (df['qend'] - df['qstart'] + 1) / df['qlen'] * 100)
+    return df
+
+
+def raw_filtering(blast, min_qcovs=None,
+                  max_pident=None, min_pident=None):
+    """run raw hi, low and coverage filters and output log information
+    """
+
+    blast_len = len(blast)
+
+    if min_qcovs:
+        # run raw hi, low and coverage filters
+        blast = blast[
+            blast['qcovs'] >= min_qcovs]
+
+        blast_post_len = len(blast)
+
+        len_diff = blast_len - blast_post_len
+        if len_diff:
+            log.warn('dropping {} sequences below '
+                     'coverage threshold'.format(len_diff))
+
+        blast_len = blast_post_len
+
+    if max_pident:
+        blast = blast[
+            blast['pident'] <= max_pident]
+
+        blast_post_len = len(blast)
+
+        len_diff = blast_len - blast_post_len
+        if len_diff:
+            log.warn('dropping {} sequences above max_pident'.format(
+                len_diff))
+
+        blast_len = blast_post_len
+
+    if min_pident:
+        blast = blast[
+            blast['pident'] >= min_pident]
+
+        blast_post_len = len(blast)
+
+        len_diff = blast_len - blast_post_len
+        if len_diff:
+            log.warn('dropping {} sequences below min_pident'.format(
+                len_diff))
+
+        blast_len = blast_post_len
+
+    return blast
+
+
 def star(df, starred):
     """Assign boolean if any items in the
     dataframe are above the star threshold.
     """
 
-    df['starred'] = df.pident.apply(lambda x: x >= starred).any()
+    df['starred'] = df['pident'].apply(lambda x: x >= starred).any()
     return df
