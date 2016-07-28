@@ -17,7 +17,7 @@
 # within sphinx to generate a file containing help text, then include
 # that in compiled docs
 
-"""Classify sequences by grouping blast output by matching taxonomic names
+"""Classify sequences by grouping alignment output by matching taxonomic names
 
 Optional grouping by specimen and query sequences
 
@@ -27,78 +27,97 @@ Running the program
 ::
 
     positional arguments:
-      blast_file            CSV tabular blast file of query and subject hits.
+      alignments            alignment file with query and subject sequence hits
+                            and optional header
       seq_info              File mapping reference seq name to tax_id
       taxonomy              Table defining the taxonomy for each tax_id
 
     optional arguments:
       -h, --help            show this help message and exit
-      --threads NUM         Number of threads (CPUs). Can also specify with
-                            environment variable THREADS_ALLOC. [32]
-      --copy-numbers CSV    Estimated 16s rRNA gene copy number for each
-                            tax_ids (CSV file with columns: tax_id, median)
-      --rank-thresholds CSV
-                            Columns [tax_id,ranks...]
-      --specimen-map CSV    CSV file with columns (name, specimen) assigning
-                            sequences to groups. The default behavior is to
-                            treat all query sequences as
-                            belonging to one specimen.
-      -w CSV, --weights CSV
-                            Optional headless csv file with columns 'seqname',
-                            'count' providing weights for each query sequence
-                            described in the blast input (used, for example, to
-                            describe cluster sizes for corresponding cluster
-                            centroids).
-      -o FILE, --out FILE   Classification results.
-      -O FILE, --details-out FILE
-                            Optional details of taxonomic assignments.
-      --details-full        do not limit out_details to only larget cluster per
-                            assignment
-      --group-def INTEGER   define a group threshold for a particular rank
-                            overriding --max-group-size. example:
-                            genus:2 (NOT IMPLEMENTED)
-      --has-header          specify this if blast data has a header
-      --min-identity PERCENT
-                            minimum identity threshold for accepting matches
-                            [>= 0.0]
-      --max-identity PERCENT
-                            maximum identity threshold for accepting matches
-                            [<= 100.0]
+
+    alignment input header-less options:
+      assumed comma-seperated with header if not specified
+
+      --blast6in, -b        header-less blast-like tab-separated input
+      --columns COLUMNS, -c COLUMNS
+                            specify columns for header-less comma-seperated values
+
+    filtering options:
+      --best-n-hits BEST_N_HITS
+                            For each qseqid sequence, filter out all but the best
+                            N hits. Used in conjunction with alignment "mismatch"
+                            column.
+      --max-pident MAX_PIDENT
+                            miminum coverage of aligments
       --min-cluster-size INTEGER
                             minimum cluster size to include in classification
                             output [1]
-      --min-coverage PERCENT
-                            percent of alignment coverage of blast result [0.0]
-      --specimen LABEL      Single group label for reads
+      --min-pident MIN_PIDENT
+                            miminum coverage of alignments
+      --min-qcovs MIN_QCOVS
+                            miminum coverage of alignments [90.0]
+
+    assignment options:
       --starred PERCENT     Names of organisms for which at least one reference
-                            sequence has pairwise identity with a query
-                            sequence of at least PERCENT will be marked with an
-                            asterisk[100.0]
+                            sequence has pairwise identity with a query sequence
+                            of at least PERCENT will be marked with an asterisk
+                            [100.0]
       --max-group-size INTEGER
-                            group multiple target-rank assignments that excede
-                            a threshold to a higher rank [3]
+                            group multiple target-rank assignments that excede a
+                            threshold to a higher rank [3]
+      --split-condensed-assignments
+                            Group final assignment classifications before
+                            assigning condensed taxonomic ids
+
+    other input options:
+      --copy-numbers CSV    Estimated 16s rRNA gene copy number for each tax_ids
+                            (CSV file with columns: tax_id, median)
+      --rank-thresholds CSV
+                            Columns [tax_id,ranks...]
+      --specimen LABEL      Single group label for reads
+      --specimen-map CSV    CSV file with columns (name, specimen) assigning
+                            sequences to groups.
+      -w CSV, --weights CSV
+                            Optional headless csv file with columns 'seqname',
+                            'count' providing weights for each query sequence
+                            described in the alignment input (used, for example,
+                            to describe cluster sizes for corresponding cluster
+                            OTUs).
+
+    output options:
+      --details-full        do not limit out_details to largest cluster per
+                            assignment [False]
+      --include-ref-rank INCLUDE_REF_RANK
+                            Given a single rank (species,genus,etc), include each
+                            reference sequence's tax_id as $\{rank\}_id and its
+                            taxonomic name as $\{rank\}_name in details output
+      --hits-below-threshold
+                            Hits that were below the best-rank threshold will be
+                            included in the details
+      --details-out FILE    Optional details of taxonomic assignments.
+      -o FILE, --out FILE   classification results [default: stdout]
 
 Positional arguments
 ++++++++++++++++++++
 
-blast_file
+alignments
 ==========
 
-A csv file with columns **qseqid**, **sseqid**, **pident**,
-**qstart**, **qend**, **qlen** and **qcovs**. Additional columns may
-be present if a header is provided; these will be ignored but will
-appear in the detailed output.
+A csv file with columns **qseqid**, **sseqid**, **pident**, and optional
+columns **qstart**, **qend**, **qlen**, **qcovs** or **mismatch**.  With
+column **qcovs** will be appended or replaced when the **qstart**,
+**qend** and **qlen** columns are present.  The **mismatch** column is used
+with the ``--best-n-hits`` switch. Additional columns may be present if a header
+is provided and will automatically be appended to detailed output.
 
-# TODO - remove qcovs
-
-.. note:: The actual header is optional if using default blast out format but
-          if present make sure to use the --has-header switch
+.. note:: If no header present user must specify one of the alignment input
+          header-less options.
 
 seq_info
 ========
 
 A csv file with minimum columns **seqname** and **tax_id**.  Additional
-columns will be included in the details output.
+columns will be included in the detailed output.
 
 taxonomy
 ========
@@ -175,7 +194,7 @@ A csv with columns and headers as in the example below:
 details-out
 ===========
 
-A csv that is basically a blast results breakdown of the `out`_ output.
+Original alignment input plus breakdown of assignments.
 
 Internal functions
 ------------------
@@ -183,10 +202,11 @@ Internal functions
 Known bugs
 ----------
 
-Tax_ids of valid Blast hits (hits that meet their rank thresholds) may be
+Tax_ids of valid alignment (that meet their rank thresholds) may be
 assigned tax_ids of a higher threshold that *could* represent invalid tax_ids
 (tax_ids that may *not* have passed the rank threshold).
 
+TODO: generate rank thresholds based on taxonomy input
 """
 
 import itertools
@@ -211,19 +231,19 @@ RANKS = ['root', 'superkingdom', 'phylum', 'class',
 def action(args):
     log.info('loading alignment file')
     if args.blast6in:
-        blast_results = pd.read_csv(
-            args.blast,
+        aligns = pd.read_csv(
+            args.alignments,
             sep='\t',
             names=['qseqid,sseqid,pident,length,mismatch,gapopen,'
                    'qstart,qend,sstart,send,evalue,bitscore'],
             dtype=utils.ALIGNMENT_DTYPES)
     else:
-        blast_results = pd.read_csv(
-            args.blast,
+        aligns = pd.read_csv(
+            args.alignments,
             dtype=utils.ALIGNMENT_DTYPES,
             names=args.columns.split(',') if args.columns else None)
 
-    if blast_results.empty:
+    if aligns.empty:
         log.info('blast results empty, exiting.')
         return
 
@@ -238,30 +258,30 @@ def action(args):
             dtype=str)
         spec_map = spec_map.drop_duplicates()
         spec_map = spec_map.set_index('qseqid')
-        blast_results = blast_results.join(spec_map, on='qseqid', how='right')
+        aligns = aligns.join(spec_map, on='qseqid', how='right')
     elif args.specimen:
-        blast_results['specimen'] = args.specimen
+        aligns['specimen'] = args.specimen
     else:
-        blast_results['specimen'] = blast_results['qseqid']  # by qseqid
+        aligns['specimen'] = aligns['qseqid']  # by qseqid
 
-    if all(c in ['qstart', 'qend', 'qlen'] for c in blast_results.columns):
+    if all(c in ['qstart', 'qend', 'qlen'] for c in aligns.columns):
         log.info('calculating qcovs')
-        blast_results = qcovs(blast_results)
+        aligns = qcovs(aligns)
 
     log.info('filering results by pident and qcovs')
-    raw_filtering(blast_results, args.min_qcovs, args.max_pident, args.min_pident)
+    raw_filtering(aligns, args.min_qcovs, args.max_pident, args.min_pident)
 
     # get a set of qseqids for identifying [no blast hits] after filtering
-    qseqids = blast_results[['specimen', 'qseqid']].drop_duplicates()
+    qseqids = aligns[['specimen', 'qseqid']].drop_duplicates()
 
-    log.info('successfully loaded {} blast results for {} query '
-             'sequences'.format(len(blast_results), len(qseqids)))
+    log.info('successfully loaded {} alignment results for {} query '
+             'sequences'.format(len(aligns), len(qseqids)))
 
-    # remove no blast hits
-    # no_blast_results will be added back later but we do not
-    # want to confuse these with blast results filter by joins
+    # remove query sequences with no alignment information
+    # these will be added back later but we do not
+    # want to confuse these with alignment results filtered by joins
     log.info('identifying no_blast_hits')
-    blast_results = blast_results[blast_results['sseqid'].notnull()]
+    aligns = aligns[aligns['sseqid'].notnull()]
 
     # load seq_info as a bridge to the sequence taxonomy.  Additional
     # columns can be specified to be included in the details-out file
@@ -271,16 +291,16 @@ def action(args):
         usecols=['seqname', 'tax_id', 'accession'],
         dtype=dict(seqname=str, tax_id=str, accession=str))
     seq_info = seq_info.set_index('seqname')
-    # rename index to match blast results column name
+    # rename index to match alignment results column name
     seq_info.index.name = 'sseqid'
 
-    # merge blast results with seq_info - do this early so that
-    # refseqs not represented in the blast results are discarded in
+    # merge alignment results with seq_info - do this early so that
+    # refseqs not represented in the alignment results are discarded in
     # the merge.
-    blast_results_len = len(blast_results)
+    aligns_len = len(aligns)
     log.info('joining seq_info file')
-    blast_results = blast_results.join(seq_info, on='sseqid', how='inner')
-    len_diff = blast_results_len - len(blast_results)
+    aligns = aligns.join(seq_info, on='sseqid', how='inner')
+    len_diff = aligns_len - len(aligns)
     if len_diff:
         log.warn('{} subject sequences dropped without '
                  'records in seq_info file'.format(len_diff))
@@ -294,12 +314,12 @@ def action(args):
     ranks = taxonomy.columns.tolist()
     ranks = ranks[ranks.index('root'):]
 
-    # now combine just the rank columns to the blast results
-    blast_results_len = len(blast_results)
+    # now combine just the rank columns to the alignment results
+    aligns_len = len(aligns)
     log.info('joining taxonomy file')
-    blast_results = blast_results.join(
+    aligns = aligns.join(
         taxonomy[['tax_name', 'rank'] + ranks], on='tax_id', how='inner')
-    len_diff = blast_results_len - len(blast_results)
+    len_diff = aligns_len - len(aligns)
     if len_diff:
         msg = '{} subject sequences dropped without records in taxonomy file'
         log.warn(msg.format(len_diff))
@@ -319,46 +339,46 @@ def action(args):
     rank_thresholds.columns = rank_thresholds_cols
 
     log.info('joining thresholds file')
-    blast_results = join_thresholds(
-        blast_results, rank_thresholds, ranks[::-1])
+    aligns = join_thresholds(
+        aligns, rank_thresholds, ranks[::-1])
 
-    # save the blast_results.columns in case groupby drops all columns
-    blast_results_columns = blast_results.columns
+    # save the aligns.columns in case groupby drops all columns
+    aligns_columns = aligns.columns
 
     # assign assignment tax ids based on pident and thresholds
     log.info('selecting valid hits')
-    blast_results_len = float(len(blast_results))
+    aligns_len = float(len(aligns))
 
-    valid_hits = blast_results.groupby(
+    valid_hits = aligns.groupby(
         by=['specimen', 'qseqid'], group_keys=False)
     valid_hits = valid_hits.apply(select_valid_hits, ranks[::-1])
 
     if args.hits_below_threshold:
         """
-        Store all the hits to append to blast_results details later
+        Store all the hits to append to aligns details later
         """
-        hits_below_threshold = blast_results[
-            ~blast_results.index.isin(valid_hits.index)]
+        hits_below_threshold = aligns[
+            ~aligns.index.isin(valid_hits.index)]
 
-    blast_results = valid_hits
+    aligns = valid_hits
 
-    if blast_results.empty:
-        log.info('all blast results filtered, returning [no blast results]')
+    if aligns.empty:
+        log.info('all alignment results filtered, returning [no blast results]')
         assignment_columns = ['assignment_rank', 'assignment_threshold',
                               'assignment_tax_name', 'condensed_id', 'starred',
                               'assignment', 'assignment_hash',
                               'condensed_rank', ASSIGNMENT_TAX_ID]
-        assignment_columns += blast_results_columns.tolist()
-        blast_results = pd.DataFrame(columns=assignment_columns)
+        assignment_columns += aligns_columns.tolist()
+        aligns = pd.DataFrame(columns=assignment_columns)
     else:
 
-        blast_results_post_len = len(blast_results)
+        aligns_post_len = len(aligns)
         log.info('{} ({:.0%}) valid hits selected'.format(
-            blast_results_post_len,
-            blast_results_post_len / blast_results_len))
+            aligns_post_len,
+            aligns_post_len / aligns_len))
 
-        if 'mismatch' in blast_results.columns:
-            blast_results_len = len(blast_results)
+        if 'mismatch' in aligns.columns:
+            aligns_len = len(aligns)
 
             def filter_mismatches(df, best_n):
                 """
@@ -369,28 +389,28 @@ def action(args):
                 return df[df['mismatch'] <= threshold]
 
             # Filter hits for each query
-            blast_results = blast_results.groupby(
+            aligns = aligns.groupby(
                 by=['specimen', 'qseqid'],
                 group_keys=False).apply(filter_mismatches, args.best_n_hits)
 
-            blast_results_post_len = len(blast_results)
+            aligns_post_len = len(aligns)
             log.info('{} ({:.0%}) hits remain after filtering '
                      'on mismatches (--best_n_hits)'.format(
-                         blast_results_post_len,
-                         blast_results_post_len / blast_results_len))
+                         aligns_post_len,
+                         aligns_post_len / aligns_len))
 
         # drop unneeded tax and threshold columns to free memory
         for c in ranks + rank_thresholds_cols:
-            blast_results = blast_results.drop(c, axis=1)
+            aligns = aligns.drop(c, axis=1)
 
         # join with taxonomy for tax_name and rank
-        blast_results = blast_results.join(
+        aligns = aligns.join(
             taxonomy[['tax_name', 'rank']],
             rsuffix='_assignment',
             on=ASSIGNMENT_TAX_ID)
 
         # no join(rprefix) (yet)
-        blast_results = blast_results.rename(
+        aligns = aligns.rename(
             columns={'tax_name_assignment': 'assignment_tax_name',
                      'rank_assignment': 'assignment_rank'})
 
@@ -399,65 +419,65 @@ def action(args):
         # create condensed assignment hashes by qseqid
         msg = 'condensing group tax_ids to size {}'.format(args.max_group_size)
         log.info(msg)
-        blast_results = blast_results.groupby(
+        aligns = aligns.groupby(
             by=['specimen', 'qseqid'], sort=False, group_keys=False)
-        blast_results = blast_results.apply(
+        aligns = aligns.apply(
             condense_ids,
             tax_dict,
             ranks,
             args.max_group_size,
             threshold_assignments=args.threshold_assignments)
 
-        blast_results = blast_results.join(
+        aligns = aligns.join(
             taxonomy[['rank']], on='condensed_id', rsuffix='_condensed')
 
-        blast_results = blast_results.rename(
+        aligns = aligns.rename(
             columns={'rank_condensed': 'condensed_rank'})
 
         # star condensed ids if one hit meets star threshold
         by = ['specimen', 'assignment_hash', 'condensed_id']
-        blast_results = blast_results.groupby(
+        aligns = aligns.groupby(
             by=by, sort=False, group_keys=False)
-        blast_results = blast_results.apply(star, args.starred)
+        aligns = aligns.apply(star, args.starred)
 
         # assign names to assignment_hashes
-        blast_results = blast_results.sort_values(by='assignment_hash')
+        aligns = aligns.sort_values(by='assignment_hash')
         log.info('creating compound assignments')
-        blast_results = blast_results.groupby(
+        aligns = aligns.groupby(
             by=['specimen', 'assignment_hash'], sort=False, group_keys=False)
-        blast_results = blast_results.apply(assign, tax_dict)
+        aligns = aligns.apply(assign, tax_dict)
 
         # Foreach ref rank:
         # - merge with taxonomy, extract rank_id, rank_name
         for rank in args.include_ref_rank:
-            blast_results[rank + '_id'] = blast_results.merge(
+            aligns[rank + '_id'] = aligns.merge(
                 taxonomy, left_on='tax_id',
                 right_index=True,
                 how='left')[rank].fillna(0)
-            blast_results[rank + '_name'] = blast_results.merge(
+            aligns[rank + '_name'] = aligns.merge(
                 taxonomy,
                 left_on=rank + '_id',
                 right_index=True,
                 how='left')['tax_name_y']
 
-    # merge qseqids that have no hits back into blast_results
-    blast_results = blast_results.merge(qseqids, how='outer')
+    # merge qseqids that have no hits back into aligns
+    aligns = aligns.merge(qseqids, how='outer')
 
     # assign seqs that had no results to [no blast_result]
-    no_hits = blast_results['sseqid'].isnull()
-    blast_results.loc[no_hits, 'assignment'] = '[no blast result]'
-    blast_results.loc[no_hits, 'assignment_hash'] = 0
+    no_hits = aligns['sseqid'].isnull()
+    aligns.loc[no_hits, 'assignment'] = '[no blast result]'
+    aligns.loc[no_hits, 'assignment_hash'] = 0
 
-    # concludes our blast details, on to output summary
+    # concludes our alignment details, on to output summary
     log.info('summarizing output')
 
     # index by specimen and assignment_hash and add assignment column
     index = ['specimen', 'assignment_hash']
-    output = blast_results[index + ['assignment']].drop_duplicates()
+    output = aligns[index + ['assignment']].drop_duplicates()
     output = output.set_index(index)
 
     # assignment level stats
-    assignment_stats = blast_results.groupby(by=index, sort=False)
+    assignment_stats = aligns.groupby(by=index, sort=False)
     output['max_percent'] = assignment_stats['pident'].max()
     output['min_percent'] = assignment_stats['pident'].min()
     output['min_threshold'] = assignment_stats['assignment_threshold'].min()
@@ -465,7 +485,7 @@ def action(args):
         best_rank, ranks)
 
     # qseqid cluster stats
-    weights = blast_results[
+    weights = aligns[
         ['qseqid', 'specimen', 'assignment_hash', 'assignment_threshold']]
     weights = weights.drop_duplicates().set_index('qseqid')
 
@@ -495,7 +515,7 @@ def action(args):
 
     # copy number corrections
     if args.copy_numbers:
-        corrections = copy_corrections(args.copy_numbers, blast_results)
+        corrections = copy_corrections(args.copy_numbers, aligns)
         output['corrected'] = output['reads'] / corrections
         # reset corrected counts to int before calculating pct_corrected
         output['corrected'] = output['corrected'].apply(math.ceil)
@@ -529,7 +549,7 @@ def action(args):
     # output to details.csv.bz2
     if args.details_out:
         # Annotate details with classification columns
-        blast_results = blast_results.merge(output.reset_index(), how='left')
+        aligns = aligns.merge(output.reset_index(), how='left')
 
         if not args.details_full:
             """
@@ -544,9 +564,9 @@ def action(args):
                 sort=False)
             largest = largest.apply(lambda x: x['weight'].nlargest(1))
             largest = largest.reset_index()
-            # assignment_threshold will conflict with blast_results NA values
+            # assignment_threshold will conflict with aligns NA values
             largest = largest.drop('assignment_threshold', axis=1)
-            blast_results = blast_results.merge(largest)
+            aligns = aligns.merge(largest)
 
         details_columns = ['specimen', 'assignment_id', 'tax_name', 'rank',
                            'assignment_tax_name', 'assignment_rank', 'pident',
@@ -565,17 +585,17 @@ def action(args):
             deets_cols &= set(details_columns)
             hits_below_threshold = hits_below_threshold[list(deets_cols)]
             threshold_cols = ['specimen', 'qseqid', 'assignment_threshold']
-            assignment_thresholds = blast_results[threshold_cols]
+            assignment_thresholds = aligns[threshold_cols]
             assignment_thresholds = assignment_thresholds.drop_duplicates()
             hits_below_threshold = hits_below_threshold.merge(
                 assignment_thresholds, how='left')
-            blast_results = pd.concat(
-                [blast_results, hits_below_threshold], ignore_index=True)
+            aligns = pd.concat(
+                [aligns, hits_below_threshold], ignore_index=True)
 
         # sort details for consistency and ease of viewing
-        blast_results = blast_results.sort_values(by=details_columns)
+        aligns = aligns.sort_values(by=details_columns)
 
-        blast_results.to_csv(
+        aligns.to_csv(
             args.details_out,
             compression=utils.get_compression(args.details_out),
             columns=details_columns,
@@ -644,21 +664,26 @@ def best_rank(s, ranks):
         return majority_rank.iloc[-1].name
 
 
+def test():
+    import argparse
+    return build_parser(argparse.ArgumentParser())
+
+
 def build_parser(parser):
     # required inputs
     parser.add_argument(
-        'blast',
-        help=('alignment file of query and '
-              'subject hits with optional header'))
+        'alignments',
+        help=('alignment file with query and '
+              'subject sequence hits and optional header'))
     parser.add_argument(
         'seq_info', help='File mapping reference seq name to tax_id')
     parser.add_argument(
         'taxonomy', help='Table defining the taxonomy for each tax_id')
 
-    blast_parser = parser.add_argument_group(
+    align_parser = parser.add_argument_group(
         title='alignment input header-less options',
         description=('assumed comma-seperated with header if not specified'))
-    columns_parser = blast_parser.add_mutually_exclusive_group(required=False)
+    columns_parser = align_parser.add_mutually_exclusive_group(required=False)
     columns_parser.add_argument(
         '--blast6in', '-b',
         action='store_true',
@@ -671,11 +696,11 @@ def build_parser(parser):
     filters_parser.add_argument(
         '--best-n-hits', type=int, default=float('inf'),
         help=('For each qseqid sequence, filter out all but the best N hits. '
-              'Used in conjunction with blast "mismatch" column.'))
+              'Used in conjunction with alignment "mismatch" column.'))
     filters_parser.add_argument(
         '--max-pident',
         type=float,
-        help=('miminum coverage in blast results'))
+        help=('miminum coverage of aligments'))
     filters_parser.add_argument(
         '--min-cluster-size', default=1, metavar='INTEGER', type=int,
         help=('minimum cluster size to include '
@@ -683,11 +708,11 @@ def build_parser(parser):
     filters_parser.add_argument(
         '--min-pident',
         type=float,
-        help=('miminum coverage in blast results'))
+        help=('miminum coverage of alignments'))
     filters_parser.add_argument(
         '--min-qcovs', default=90.0,
         type=float,
-        help=('miminum coverage in blast results [%(default)s]'))
+        help=('miminum coverage of alignments [%(default)s]'))
 
     # TODO: add subcommand --use-qcovs, default False, indicating that
     # "qcovs" column should be used directly; by default, coverage is
@@ -735,8 +760,8 @@ def build_parser(parser):
         '-w', '--weights', metavar='CSV',
         help=('Optional headless csv file with columns \'seqname\', '
               '\'count\' providing weights for each query sequence described  '
-              'in the blast input (used, for example, to describe cluster '
-              'sizes for corresponding cluster centroids).'))
+              'in the alignment input (used, for example, to describe cluster '
+              'sizes for corresponding cluster OTUs).'))
 
     outs_parser = parser.add_argument_group('output options')
     outs_parser.add_argument(
@@ -907,7 +932,7 @@ def condense_ids(
     return df.join(condensed, on=ASSIGNMENT_TAX_ID)
 
 
-def copy_corrections(copy_numbers, blast_results, user_file=None):
+def copy_corrections(copy_numbers, aligns, user_file=None):
     copy_numbers = pd.read_csv(
         copy_numbers,
         dtype=dict(tax_id=str, median=float),
@@ -915,13 +940,13 @@ def copy_corrections(copy_numbers, blast_results, user_file=None):
 
     # get root out (taxid: 1) and set it as the default correction value
 
-    # set index nana (no blast result) to the default value
+    # set index nan (no blast result) to the default value
     default = copy_numbers.get_value('1', 'median')
     default_entry = pd.DataFrame(default, index=[None], columns=['median'])
     copy_numbers = copy_numbers.append(default_entry)
 
     # do our copy number correction math
-    corrections = blast_results[
+    corrections = aligns[
         [ASSIGNMENT_TAX_ID, 'specimen', 'assignment_hash']]
     corrections = corrections.drop_duplicates()
     corrections = corrections.set_index(ASSIGNMENT_TAX_ID)
@@ -995,7 +1020,7 @@ def join_thresholds(df, thresholds, ranks):
 
     If a rank id is not present in the thresholds then the next specific
     rank id is used all the way up to `root'.  If the root id still does
-    not match then a warning is issued with the taxname and the blast hit
+    not match then a warning is issued with the taxname and the alignment
     is dropped.
     """
     with_thresholds = pd.DataFrame(columns=df.columns)  # temp DFrame
@@ -1009,7 +1034,7 @@ def join_thresholds(df, thresholds, ranks):
     # issue warning messages for everything that did not join
     if len(df) > 0:
         tax_names = df['tax_name'].drop_duplicates()
-        msg = ('dropping blast hit `{}\', no valid '
+        msg = ('dropping alignment `{}\', no valid '
                'taxonomic threshold information found')
         tax_names.apply(lambda x: log.warn(msg.format(x)))
 
@@ -1091,54 +1116,54 @@ def qcovs(df):
     return df
 
 
-def raw_filtering(blast, min_qcovs=None,
+def raw_filtering(align, min_qcovs=None,
                   max_pident=None, min_pident=None):
     """run raw hi, low and coverage filters and output log information
     """
 
-    blast_len = len(blast)
+    align_len = len(align)
 
     if min_qcovs:
         # run raw hi, low and coverage filters
-        blast = blast[
-            blast['qcovs'] >= min_qcovs]
+        align = align[
+            align['qcovs'] >= min_qcovs]
 
-        blast_post_len = len(blast)
+        align_post_len = len(align)
 
-        len_diff = blast_len - blast_post_len
+        len_diff = align_len - align_post_len
         if len_diff:
             log.warn('dropping {} sequences below '
                      'coverage threshold'.format(len_diff))
 
-        blast_len = blast_post_len
+        align_len = align_post_len
 
     if max_pident:
-        blast = blast[
-            blast['pident'] <= max_pident]
+        align = align[
+            align['pident'] <= max_pident]
 
-        blast_post_len = len(blast)
+        align_post_len = len(align)
 
-        len_diff = blast_len - blast_post_len
+        len_diff = align_len - align_post_len
         if len_diff:
             log.warn('dropping {} sequences above max_pident'.format(
                 len_diff))
 
-        blast_len = blast_post_len
+        align_len = align_post_len
 
     if min_pident:
-        blast = blast[
-            blast['pident'] >= min_pident]
+        align = align[
+            align['pident'] >= min_pident]
 
-        blast_post_len = len(blast)
+        align_post_len = len(align)
 
-        len_diff = blast_len - blast_post_len
+        len_diff = align_len - align_post_len
         if len_diff:
             log.warn('dropping {} sequences below min_pident'.format(
                 len_diff))
 
-        blast_len = blast_post_len
+        align_len = align_post_len
 
-    return blast
+    return align
 
 
 def star(df, starred):

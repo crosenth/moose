@@ -12,10 +12,24 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
-
 """
-Pivot classifier output on read counts with
-assignments as rows and specimens as columns
+Pivot classifier output on read counts with assignments
+as rows and specimens as columns
+
+usage: classifier tallies_wide [-h] [--details DETAILS] [-o FILE] assignments
+
+Pivot classifier output on read counts with assignments
+as rows and specimens as columns
+
+positional arguments:
+  assignments          output from classify
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --details DETAILS    for tax_id column in output
+
+output options:
+  -o FILE, --out FILE  classification results [default: stdout]
 """
 
 import sys
@@ -28,6 +42,10 @@ log = logging.getLogger(__name__)
 
 
 def build_parser(parser):
+    """
+    build the parser
+    """
+
     parser.add_argument(
         'assignments', help='output from classify')
     parser.add_argument(

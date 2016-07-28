@@ -1,5 +1,7 @@
 *.pyc
-build
+build/
+_build
+html
 MANIFEST
 dist
 *.egg-info

@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+execute the classifier program without setuptools installation
+"""
 
 import classifier
 import sys

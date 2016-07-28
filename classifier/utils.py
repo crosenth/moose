@@ -12,6 +12,9 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
+"""
+common utilities
+"""
 
 import bz2
 import gzip
