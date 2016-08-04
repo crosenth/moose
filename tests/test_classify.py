@@ -525,8 +525,6 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
 
         names = list(set([line['tax_name'] for line in csv.DictReader(BZ2File(details_out))]))
 
-        print(names)
-
         """
         Normally we would expect 4 details rows spanning 3 tax_names, lending
         to the classification "Streptococcus infantarius/mutans*/troglodytae
@@ -534,3 +532,82 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
         lending to the classification
         """
         self.assertTrue(len(names) == 2)
+
+    def test17(self):
+            """
+            min-pident 99, max-pident 100
+            """
+
+            this_test = sys._getframe().f_code.co_name
+
+            thisdatadir = self.thisdatadir
+
+            taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
+            seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
+            blast = os.path.join(thisdatadir, 'blast.csv.bz2')
+
+            outdir = self.mkoutdir()
+
+            classify_out = os.path.join(outdir, 'classifications.csv.bz2')
+            details_out = os.path.join(outdir, 'details.csv.bz2')
+
+            classify_ref = os.path.join(
+                thisdatadir, this_test, 'classifications.csv.bz2')
+            details_ref = os.path.join(
+                thisdatadir, this_test, 'details.csv.bz2')
+
+            args = [
+                '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
+                '--max-pident', '100',
+                '--min-pident', '99',
+                '--out', classify_out,
+                '--details-out', details_out,
+                blast,
+                seq_info,
+                taxonomy]
+
+            log.info(self.log_info.format(' '.join(map(str, args))))
+
+            self.main(args)
+
+            self.assertTrue(filecmp.cmp(classify_ref, classify_out))
+            self.assertTrue(filecmp.cmp(details_ref, details_out))
+
+    def test18(self):
+        """
+        min qcovs
+        """
+
+        this_test = sys._getframe().f_code.co_name
+
+        thisdatadir = self.thisdatadir
+
+        taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
+        seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
+        blast = os.path.join(thisdatadir, 'blast.csv.bz2')
+
+        outdir = self.mkoutdir()
+
+        classify_out = os.path.join(outdir, 'classifications.csv.bz2')
+        details_out = os.path.join(outdir, 'details.csv.bz2')
+
+        classify_ref = os.path.join(
+            thisdatadir, this_test, 'classifications.csv.bz2')
+        details_ref = os.path.join(
+            thisdatadir, this_test, 'details.csv.bz2')
+
+        args = [
+            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
+            '--min-qcovs', '99',
+            '--out', classify_out,
+            '--details-out', details_out,
+            blast,
+            seq_info,
+            taxonomy]
+
+        log.info(self.log_info.format(' '.join(map(str, args))))
+
+        self.main(args)
+
+        self.assertTrue(filecmp.cmp(classify_ref, classify_out))
+        self.assertTrue(filecmp.cmp(details_ref, details_out))
