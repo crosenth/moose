@@ -264,7 +264,7 @@ def action(args):
     else:
         aligns['specimen'] = aligns['qseqid']  # by qseqid
 
-    if all(c in ['qstart', 'qend', 'qlen'] for c in aligns.columns):
+    if all(q in aligns.columns for q in ['qstart', 'qend', 'qlen']):
         log.info('calculating qcovs')
         aligns = qcovs(aligns)
 
@@ -1132,7 +1132,7 @@ def raw_filtering(align, min_qcovs=None,
 
         len_diff = align_len - align_post_len
         if len_diff:
-            log.warn('dropping {} sequences below '
+            log.warn('dropping {} alignments below '
                      'coverage threshold'.format(len_diff))
 
         align_len = align_post_len
@@ -1145,7 +1145,7 @@ def raw_filtering(align, min_qcovs=None,
 
         len_diff = align_len - align_post_len
         if len_diff:
-            log.warn('dropping {} sequences above max_pident'.format(
+            log.warn('dropping {} alignments above max_pident'.format(
                 len_diff))
 
         align_len = align_post_len
@@ -1158,7 +1158,7 @@ def raw_filtering(align, min_qcovs=None,
 
         len_diff = align_len - align_post_len
         if len_diff:
-            log.warn('dropping {} sequences below min_pident'.format(
+            log.warn('dropping {} alignments below min_pident'.format(
                 len_diff))
 
         align_len = align_post_len
