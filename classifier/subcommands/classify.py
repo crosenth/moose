@@ -247,6 +247,14 @@ def action(args):
         log.info('blast results empty, exiting.')
         return
 
+    if all(q in aligns.columns for q in ['qstart', 'qend', 'qlen']):
+        log.info('calculating qcovs')
+        aligns = qcovs(aligns)
+
+    log.info('filering results by pident and qcovs')
+    aligns = raw_filtering(
+        aligns, args.min_qcovs, args.max_pident, args.min_pident)
+
     # load specimen-map
     if args.specimen_map:
         # if a specimen_map is defined and a qseqid is not included in the map
@@ -263,13 +271,6 @@ def action(args):
         aligns['specimen'] = args.specimen
     else:
         aligns['specimen'] = aligns['qseqid']  # by qseqid
-
-    if all(q in aligns.columns for q in ['qstart', 'qend', 'qlen']):
-        log.info('calculating qcovs')
-        aligns = qcovs(aligns)
-
-    log.info('filering results by pident and qcovs')
-    raw_filtering(aligns, args.min_qcovs, args.max_pident, args.min_pident)
 
     # get a set of qseqids for identifying [no blast hits] after filtering
     qseqids = aligns[['specimen', 'qseqid']].drop_duplicates()
