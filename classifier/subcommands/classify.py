@@ -231,11 +231,11 @@ RANKS = ['root', 'superkingdom', 'phylum', 'class',
 def action(args):
     log.info('loading alignment file')
     if args.blast6in:
-        aligns = pd.read_csv(
+        aligns = pd.read_table(
             args.alignments,
-            sep='\t',
-            names=['qseqid,sseqid,pident,length,mismatch,gapopen,'
-                   'qstart,qend,sstart,send,evalue,bitscore'],
+            names=['qseqid', 'sseqid', 'pident', 'length',
+                   'mismatch', 'gapopen', 'qstart', 'qend',
+                   'sstart', 'send', 'evalue', 'bitscore'],
             dtype=utils.ALIGNMENT_DTYPES)
     else:
         aligns = pd.read_csv(
@@ -364,7 +364,8 @@ def action(args):
     aligns = valid_hits
 
     if aligns.empty:
-        log.info('all alignment results filtered, returning [no blast results]')
+        log.info('all alignment results filtered, '
+                 'returning [no blast results]')
         assignment_columns = ['assignment_rank', 'assignment_threshold',
                               'assignment_tax_name', 'condensed_id', 'starred',
                               'assignment', 'assignment_hash',
@@ -378,7 +379,7 @@ def action(args):
             aligns_post_len,
             aligns_post_len / aligns_len))
 
-        if 'mismatch' in aligns.columns:
+        if 'mismatch' in aligns.columns and args.best_n_hits:
             aligns_len = len(aligns)
 
             def filter_mismatches(df, best_n):
@@ -695,7 +696,7 @@ def build_parser(parser):
 
     filters_parser = parser.add_argument_group('filtering options')
     filters_parser.add_argument(
-        '--best-n-hits', type=int, default=float('inf'),
+        '--best-n-hits', type=int,
         help=('For each qseqid sequence, filter out all but the best N hits. '
               'Used in conjunction with alignment "mismatch" column.'))
     filters_parser.add_argument(
@@ -711,15 +712,13 @@ def build_parser(parser):
         type=float,
         help=('miminum coverage of alignments'))
     filters_parser.add_argument(
-        '--min-qcovs', default=90.0,
+        '--min-qcovs',
         type=float,
         help=('miminum coverage of alignments [%(default)s]'))
 
     # TODO: add subcommand --use-qcovs, default False, indicating that
     # "qcovs" column should be used directly; by default, coverage is
     # calculated from other data
-
-    # TODO - move options from filter here; don't need that as a separate subcommand
 
     assignment_parser = parser.add_argument_group('assignment options')
     assignment_parser.add_argument(
@@ -1048,11 +1047,12 @@ def load_rank_thresholds(
     rank_threshold_defaults.csv file will be loaded.
     """
 
-    return pd.read_csv(
-        path,
-        comment='#',
-        usecols=['tax_id'] + usecols,
-        dtype=dict(tax_id=str)).set_index('tax_id')
+    dtypes = {'tax_id': str}
+    dtypes.update(zip(usecols, [float] * len(usecols)))
+    rank_thresholds = pd.read_csv(path, comment='#', dtype=dtypes)
+    rank_thresholds = rank_thresholds.set_index('tax_id')
+    drop = [col for col in rank_thresholds.columns if col not in usecols]
+    return rank_thresholds.drop(drop, axis=1)
 
 
 def round_up(x):
