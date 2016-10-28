@@ -25,7 +25,6 @@ import os
 import pkg_resources
 import pkgutil
 import re
-import subcommands
 import subprocess
 import sys
 import utils
@@ -54,6 +53,7 @@ def main(argv=sys.argv[1:]):
     parser.add_argument('-h', '--help', action='help')
 
     # setup actions and actions' arguments
+    import subcommands
     parser, actions = parse_subcommands(parser, subcommands, argv)
 
     # finish building namespace
