@@ -1,5 +1,9 @@
 import classifier
 import setuptools
+import sys
+
+if sys.version_info < (3, 0):
+    raise EnvironmentError('Please install using pip3 or python3')
 
 setuptools.setup(author='Chris Rosenthal',
                  author_email='crosenth@uw.edu',

@@ -919,7 +919,7 @@ def condense_ids(
         max_size=max_group_size)
 
     condensed = pd.DataFrame(
-        condensed.items(),
+        list(condensed.items()),
         columns=[ASSIGNMENT_TAX_ID, 'condensed_id'])
     condensed = condensed.set_index(ASSIGNMENT_TAX_ID)
 
@@ -980,7 +980,7 @@ def format_taxonomy(names, selectors, asterisk='*'):
     element in the selectors evaluates to True.
     """
 
-    names = itertools.izip_longest(names, selectors)
+    names = itertools.zip_longest(names, selectors)
     names = ((n, asterisk if s else '')
              for n, s in names)  # add asterisk to selected names
     names = set(names)
