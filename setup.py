@@ -18,14 +18,11 @@ setuptools.setup(author='Chris Rosenthal',
                  install_requires=['pandas>=0.17.1'],
                  license='GPLv3',
                  classifiers=[
+                     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
                      'Development Status :: 4 - Beta'
                      'Environment :: Console',
                      'Operating System :: OS Independent',
+                     'Intended Audience :: End Users/Desktop',
                      ('License :: OSI Approved :: '
                       'GNU General Public License v3 (GPLv3)'),
-                     'Programming Language :: Python',
-                     'Programming Language :: Python :: 2',
-                     'Programming Language :: Python :: 3',
-                     'Programming Language :: Python :: 2.7',
-                     'Programming Language :: Python :: 3.4',
-                     'Programming Language :: Python :: 3.5'])
+                     'Programming Language :: Python :: 3 :: Only'])
