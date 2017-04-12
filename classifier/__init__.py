@@ -27,7 +27,8 @@ import pkgutil
 import re
 import subprocess
 import sys
-import utils
+
+from classifier import utils
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def main(argv=sys.argv[1:]):
     parser.add_argument('-h', '--help', action='help')
 
     # setup actions and actions' arguments
-    import subcommands
+    from classifier import subcommands
     parser, actions = parse_subcommands(parser, subcommands, argv)
 
     # finish building namespace
@@ -155,7 +156,7 @@ def parse_subcommands(parser, subcommands, argv):
         try:
             imp = '{}.{}'.format(subcommands.__name__, name)
             mod = importlib.import_module(imp)
-        except Exception, e:
+        except Exception as e:
             log.error(e)
             continue
 

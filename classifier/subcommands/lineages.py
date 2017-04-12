@@ -43,12 +43,12 @@ def build_parser(parser):
         '--tax_ids',
         action='store_false',
         dest='names',
-        help='')
+        help='show tax_ids instead of tax names in output')
     parser.add_argument(
         '-o', '--out',
         default=sys.stdout,
         metavar='FILE',
-        help="classification results [default: stdout]")
+        help="lineage results [default: stdout]")
 
 
 #  Need this to identify rank columns in the taxtable
