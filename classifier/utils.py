@@ -65,7 +65,7 @@ def get_compression(io):
     return compression
 
 
-def opener(mode='r'):
+def opener(mode='rt'):
     """Factory for creating file objects
 
     Keyword Arguments:
