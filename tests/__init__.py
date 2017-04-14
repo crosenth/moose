@@ -1,11 +1,8 @@
-import cPickle
 import sys
 import logging
 import os
 import shutil
 import unittest
-
-from classifier import utils
 
 # set up logging for unit tests
 verbosity_flag = [x for x in sys.argv if x.startswith('-v')]
@@ -22,7 +19,7 @@ if verbosity > 1:
 else:
     logformat = '%(message)s'
 
-logging.basicConfig(file=sys.stdout, format=logformat, level=loglevel)
+logging.basicConfig(stream=sys.stdout, format=logformat, level=loglevel)
 log = logging.getLogger(__name__)
 
 # module data
@@ -60,10 +57,6 @@ class TestBase(unittest.TestCase):
 
     def data(self, fname):
         return os.path.join(datadir, fname)
-
-    def write_pickle(self, pth, data):
-        with utils.opener(pth, 'wb') as f:
-            cPickle.dump(data, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
 class TestCaseSuppressOutput(unittest.TestCase):

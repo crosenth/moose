@@ -2,17 +2,17 @@
 Test classifier
 """
 
+import bz2
 import logging
 import os
 import csv
-from bz2 import BZ2File
 
 import filecmp
 import sys
 
 from classifier import main
 
-from __init__ import TestBase, TestCaseSuppressOutput, datadir as datadir
+from tests import TestBase, TestCaseSuppressOutput, datadir as datadir
 
 log = logging.getLogger(__name__)
 
@@ -523,7 +523,9 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
 
         self.main(args)
 
-        names = list(set([line['tax_name'] for line in csv.DictReader(BZ2File(details_out))]))
+        names = set()
+        for line in csv.DictReader(bz2.open(details_out, mode='rt')):
+            names.add(line['tax_name'])
 
         """
         Normally we would expect 4 details rows spanning 3 tax_names, lending
