@@ -3,11 +3,10 @@ Test classifier
 """
 
 import bz2
+import csv
+import filecmp
 import logging
 import os
-import csv
-
-import filecmp
 import sys
 
 from classifier import main
