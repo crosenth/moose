@@ -110,7 +110,7 @@ def parse_args(parser):
     parser.add_argument('-v', '--verbose',
                         action='count',
                         dest='verbosity',
-                        default=1,
+                        default=0,
                         help='Increase verbosity of screen output '
                              '(eg, -v is verbose, -vv more so)')
 
