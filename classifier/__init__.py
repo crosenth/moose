@@ -199,9 +199,9 @@ def version():
     """
     for cmd in git_cmds:
         logging.debug(' '.join(cmd))
-        git_re = 'v(?P<tag>[\d.]*)-?(?P<commit>[\d.]*)-?.*'
+        git_re = '(?P<tag>[\d.]*)-?(?P<commit>[\d.]*)-?.*'
         try:
-            git_ver = subprocess.check_output(cmd, stderr=devnull)
+            git_ver = subprocess.check_output(cmd, stderr=devnull).decode('utf-8')
             git_search = re.search(git_re, git_ver)
             if git_search.group('commit') == '':
                 version = git_search.group('tag')
