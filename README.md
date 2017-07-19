@@ -5,6 +5,7 @@ Note - This package has requires a fully constructed taxonomy table generated
 by Taxtastic (https://github.com/fhcrc/taxtastic).  The taxtable must reflect
 the taxonomy of the refsets that is being aligned against.
 
+```
 positional arguments:
   alignments            alignment file with query and subject sequence hits
                         and optional header
@@ -74,4 +75,5 @@ output options:
                         Hits that were below the best-rank threshold will be
                         included in the details
   --details-out FILE    Optional details of taxonomic assignments.
-  -o FILE, --out FILE   classification results [default: stdout]``
+  -o FILE, --out FILE   classification results [default: stdout]
+```
