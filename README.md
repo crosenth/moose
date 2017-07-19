@@ -1,9 +1,9 @@
 Groups pairwise alignments by taxonomy and alignment scores.  Works safely 
 with large data sets using the Python Data Analysis Library.
 
-Note - This package has requires a fully constructed taxonomy table generated
+Note - This package requires a fully constructed taxonomy table generated
 by Taxtastic (https://github.com/fhcrc/taxtastic).  The taxtable must reflect
-the taxonomy of the refsets that is being aligned against.
+the taxonomy of the refset being aligned against.
 
 ```
 positional arguments:
