@@ -1,10 +1,22 @@
+## WIP
+
+I am in the process of simplifying this package into a classifier
+only application. A full ncbi taxonomy will be built in and refreshed as 
+part of periodic releases.  The user will always be able to include their own
+up-to-date 
+
+## Description
+
 Groups pairwise alignments by taxonomy and alignment scores.  Works safely 
 with large data sets using the Python Data Analysis Library.
 
-Note - This package requires a fully constructed taxonomy table generated
+## Additional Note
+
+This package requires a fully constructed taxonomy table generated
 by Taxtastic (https://github.com/fhcrc/taxtastic).  The taxtable must reflect
 the taxonomy of the refset being aligned against.
 
+``classifier classify -h``
 ```
 positional arguments:
   alignments            alignment file with query and subject sequence hits
@@ -76,4 +88,3 @@ output options:
                         included in the details
   --details-out FILE    Optional details of taxonomic assignments.
   -o FILE, --out FILE   classification results [default: stdout]
-```
