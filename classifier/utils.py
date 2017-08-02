@@ -38,7 +38,7 @@ ALIGNMENT_DTYPES = {
     'sstart': int,
     'send': int,
     'evalue': float,
-    'bitscore': int,
+    'bitscore': float,
     'length': int,
     'qcovs': float,
     'specimen': str,
