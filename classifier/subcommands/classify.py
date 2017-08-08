@@ -229,7 +229,7 @@ RANKS = ['root', 'superkingdom', 'phylum', 'class',
 
 
 def action(args):
-    log.info('loading alignment file')
+    log.info('loading alignments ' + args.alignments)
     if args.blast6in:
         aligns = pd.read_table(
             args.alignments,
@@ -248,17 +248,20 @@ def action(args):
         return
 
     if all(q in aligns.columns for q in ['qstart', 'qend', 'qlen']):
-        log.info('calculating qcovs')
+        log.info('calculating global qcovs')
         aligns = qcovs(aligns)
 
-    log.info('filering results by pident and qcovs')
-    aligns = raw_filtering(
-        aligns, args.min_qcovs, args.max_pident, args.min_pident)
+    if any([args.min_qcovs, args.max_pident, args.min_pident]):
+        log.info('filtering results by pident and qcovs')
+        aligns = raw_filtering(
+            aligns, args.min_qcovs, args.max_pident, args.min_pident)
 
-    # load specimen-map
+    # specimen grouping
     if args.specimen_map:
-        # if a specimen_map is defined and a qseqid is not included in the map
-        # hits to that qseqid will be dropped (inner join)
+        '''
+        qseqids not present in specimen_map are ignored throughout script
+        qseqids not present in alignments are considered [no blast hits]
+        '''
         spec_map = pd.read_csv(
             args.specimen_map,
             names=['qseqid', 'specimen'],
@@ -267,57 +270,70 @@ def action(args):
         spec_map = spec_map.drop_duplicates()
         spec_map = spec_map.set_index('qseqid')
         aligns = aligns.join(spec_map, on='qseqid', how='right')
+        # TODO: Can we just get our [no blast hits] instead of diffing later?
     elif args.specimen:
+        # all sequences are of one specimen
         aligns['specimen'] = args.specimen
     else:
+        # each qseqid is its own specimen
         aligns['specimen'] = aligns['qseqid']  # by qseqid
 
     # get a set of qseqids for identifying [no blast hits] after filtering
     qseqids = aligns[['specimen', 'qseqid']].drop_duplicates()
 
-    log.info('successfully loaded {} alignment results for {} query '
-             'sequences'.format(len(aligns), len(qseqids)))
+    msg = 'successfully loaded {} alignments from {} query sequences'
+    log.info(msg.format(len(aligns), len(qseqids)))
 
-    # remove query sequences with no alignment information
-    # these will be added back later but we do not
-    # want to confuse these with alignment results filtered by joins
-    log.info('identifying no_blast_hits')
+    '''
+    Remove query sequences with no alignment information.
+    These will be added back later but we do not want to
+    confuse these with alignment results filtered by joins.
+    '''
     aligns = aligns[aligns['sseqid'].notnull()]
 
-    # load seq_info as a bridge to the sequence taxonomy.  Additional
-    # columns can be specified to be included in the details-out file
-    # such as accession number
+    '''
+    Load seq_info as a bridge to the sequence taxonomy.  Additional
+    columns can be specified to be included in the details-out file
+    such as accession number
+
+    TODO: Just load the entire seq_info and assert the presence of seqname
+    and tax_id. Then, all additional columns can be carried through to the
+    final results.  Cleaning up our own seq_info file is something else we
+    need to do.
+    '''
+    log.info('reading ' + args.seq_info)
     seq_info = pd.read_csv(
         args.seq_info,
-        usecols=['seqname', 'tax_id', 'accession'],
-        dtype=dict(seqname=str, tax_id=str, accession=str))
+        usecols=['seqname', 'tax_id'],
+        dtype=str)
     seq_info = seq_info.set_index('seqname')
     # rename index to match alignment results column name
+    # TODO: make a note that sseqid is a required column in the alignments!
     seq_info.index.name = 'sseqid'
 
-    # merge alignment results with seq_info - do this early so that
-    # refseqs not represented in the alignment results are discarded in
-    # the merge.
     aligns_len = len(aligns)
-    log.info('joining seq_info file')
+    log.info('joining')
     aligns = aligns.join(seq_info, on='sseqid', how='inner')
     len_diff = aligns_len - len(aligns)
     if len_diff:
         log.warn('{} subject sequences dropped without '
                  'records in seq_info file'.format(len_diff))
 
-    # load the full taxonomy table.  Rank specificity as ordered from
-    # left (less specific) to right (more specific)
-    taxonomy = pd.read_csv(args.taxonomy, dtype=str).set_index('tax_id')
+    '''
+    load the full taxonomy table.  Rank specificity as ordered from
+    left (less specific) to right (more specific)
 
-    # get the a list of rank columns ordered by specificity (see above)
-    # NOTE: we are assuming the rank columns
+    FIXME: Instead of using column order to judge rank order just
+    specify the rank order in here somewhere.
+    '''
+    log.info('reading ' + args.taxonomy)
+    taxonomy = pd.read_csv(args.taxonomy, dtype=str).set_index('tax_id')
     ranks = taxonomy.columns.tolist()
     ranks = ranks[ranks.index('root'):]
 
     # now combine just the rank columns to the alignment results
     aligns_len = len(aligns)
-    log.info('joining taxonomy file')
+    log.info('joining with alignments')
     aligns = aligns.join(
         taxonomy[['tax_name', 'rank'] + ranks], on='tax_id', how='inner')
     len_diff = aligns_len - len(aligns)
@@ -339,7 +355,7 @@ def action(args):
                             for c in rank_thresholds.columns]
     rank_thresholds.columns = rank_thresholds_cols
 
-    log.info('joining thresholds file')
+    # joining rank thresholds file
     aligns = join_thresholds(
         aligns, rank_thresholds, ranks[::-1])
 
@@ -347,7 +363,7 @@ def action(args):
     aligns_columns = aligns.columns
 
     # assign assignment tax ids based on pident and thresholds
-    log.info('selecting valid hits')
+    log.info('selecting best alignments for classification')
     aligns_len = float(len(aligns))
 
     valid_hits = aligns.groupby(
@@ -373,22 +389,12 @@ def action(args):
         assignment_columns += aligns_columns.tolist()
         aligns = pd.DataFrame(columns=assignment_columns)
     else:
-
         aligns_post_len = len(aligns)
-        log.info('{} ({:.0%}) valid hits selected'.format(
-            aligns_post_len,
-            aligns_post_len / aligns_len))
+        msg = '{} alignments selected for classification'
+        log.info(msg.format(aligns_post_len))
 
         if 'mismatch' in aligns.columns and args.best_n_hits:
             aligns_len = len(aligns)
-
-            def filter_mismatches(df, best_n):
-                """
-                Filter all hits with more mismatches than the Nth best hit
-                """
-
-                threshold = df['mismatch'].nsmallest(best_n).iloc[-1]
-                return df[df['mismatch'] <= threshold]
 
             # Filter hits for each query
             aligns = aligns.groupby(
@@ -402,6 +408,7 @@ def action(args):
                          aligns_post_len / aligns_len))
 
         # drop unneeded tax and threshold columns to free memory
+        # TODO: see if this is necessary anymore since latest Pandas release
         for c in ranks + rank_thresholds_cols:
             aligns = aligns.drop(c, axis=1)
 
@@ -573,7 +580,7 @@ def action(args):
         details_columns = ['specimen', 'assignment_id', 'tax_name', 'rank',
                            'assignment_tax_name', 'assignment_rank', 'pident',
                            'tax_id', ASSIGNMENT_TAX_ID, 'condensed_id',
-                           'accession', 'qseqid', 'sseqid', 'starred',
+                           'qseqid', 'sseqid', 'starred',
                            'assignment_threshold']
         ref_rank_columns = [rank + '_id' for rank in args.include_ref_rank]
         ref_rank_columns += [rank + '_name' for rank in args.include_ref_rank]
@@ -792,6 +799,10 @@ def build_parser(parser):
 
 
 def calculate_pct_references(df, pct_reference):
+    '''
+    Not used yet.  Given a total number of reference sequences this function
+    will divide the sseqids by the reference sequence count for a pct_reference.
+    '''
     reference_count = df[['tax_id']].drop_duplicates()
     reference_count = reference_count.join(pct_reference, on='tax_id')
     reference_count = reference_count['count'].sum()
@@ -815,7 +826,6 @@ def compound_assignment(assignments, taxonomy):
     taxonomy = {taxid:taxonomy}
     Functionality: see format_taxonomy
     """
-
     if not taxonomy:
         raise TypeError('taxonomy must not be empty or NoneType')
 
@@ -911,7 +921,6 @@ def condense_ids(
     can contains extra annotations that are independent of which
     assignment group a qseqid belongs to such as a 100% id star.
     """
-
     condensed = condense(
         df[ASSIGNMENT_TAX_ID].unique(),
         tax_dict,
@@ -959,15 +968,21 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     return corrections
 
 
-def find_tax_id(series, valids, r, ranks):
-    """Return the most taxonomic specific tax_id available for the given
-    Series.  If a tax_id is already present in valids[r] then return None.
+def filter_mismatches(df, best_n):
     """
+    Filter all hits with more mismatches than the Nth best hit
+    """
+    threshold = df['mismatch'].nsmallest(best_n).iloc[-1]
+    return df[df['mismatch'] <= threshold]
 
-    index = ranks.index(r)
-    series = series[ranks[index:]]
-    series = series[~series.isnull()]
-    found = series.head(n=1)
+
+def find_tax_id(lineage, valids, ranks):
+    """Return the most taxonomic specific tax_id available for the given
+    Series.  If a tax_id is already present in valids then return None.
+    """
+    lineage = lineage[ranks]  # just the remainging higher rank tax_ids
+    lineage = lineage[~lineage.isnull()]
+    found = lineage.head(n=1)  # best available tax_id
     key = found.index.values[0]
     value = found.values[0]
     return value if value not in valids[key].unique() else None
@@ -979,7 +994,6 @@ def format_taxonomy(names, selectors, asterisk='*'):
     have an asterisk value appended *only* if the cooresponding
     element in the selectors evaluates to True.
     """
-
     names = itertools.zip_longest(names, selectors)
     names = ((n, asterisk if s else '')
              for n, s in names)  # add asterisk to selected names
@@ -1043,10 +1057,10 @@ def join_thresholds(df, thresholds, ranks):
 
 def load_rank_thresholds(
         path=os.path.join(datadir, 'rank_thresholds.csv'), usecols=None):
-    """Load a rank-thresholds file.  If no argument is specified the default
+    """
+    Load a rank-thresholds file.  If no argument is specified the default
     rank_threshold_defaults.csv file will be loaded.
     """
-
     dtypes = {'tax_id': str}
     dtypes.update(zip(usecols, [float] * len(usecols)))
     rank_thresholds = pd.read_csv(path, comment='#', dtype=dtypes)
@@ -1080,16 +1094,20 @@ def select_valid_hits(df, ranks):
         tax_ids = valid[r]
         na_ids = tax_ids.isnull()
 
-        # Occasionally tax_ids will be missing at a certain rank.
-        # If so use the next less specific tax_id available
+        '''
+        Occasionally tax_ids will be missing at a certain rank.
+        If so use the next less specific tax_id available
+        '''
         if na_ids.all():
             continue
 
         if na_ids.any():
             # bump up missing taxids
             have_ids = valid[tax_ids.notnull()]
+            # for each row without a tax_id find the next highest tax_id
+            remaining_ranks = ranks[ranks.index(r):]
             found_ids = valid[na_ids].apply(
-                find_tax_id, args=(have_ids, r, ranks), axis=1)
+                find_tax_id, args=(have_ids, remaining_ranks), axis=1)
             tax_ids = have_ids[r].append(found_ids)
 
         valid[ASSIGNMENT_TAX_ID] = tax_ids
@@ -1097,17 +1115,18 @@ def select_valid_hits(df, ranks):
         # return notnull() assignment_threshold valid values
         return valid[valid[ASSIGNMENT_TAX_ID].notnull()]
 
-    # nothing passed
+    '''
+    we have cycled through all the available ranks and nothing passed
+    so we return an empty df
+    '''
     df[ASSIGNMENT_TAX_ID] = None
     df['assignment_threshold'] = None
-
     return pd.DataFrame(columns=df.columns)
 
 
 def pct(s):
     """Calculate series pct something
     """
-
     return s / s.sum() * 100
 
 
@@ -1171,6 +1190,5 @@ def star(df, starred):
     """Assign boolean if any items in the
     dataframe are above the star threshold.
     """
-
     df['starred'] = df['pident'].apply(lambda x: x >= starred).any()
     return df
