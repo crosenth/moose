@@ -86,7 +86,7 @@ def setup_logging(namespace):
     }.get(namespace.verbosity, logging.DEBUG)
 
     if namespace.verbosity > 1:
-        logformat = '%(levelname)s classifier %(lineno)s %(message)s'
+        logformat = '%(levelname)s classifier %(message)s'
     else:
         logformat = 'classifier %(message)s'
 
