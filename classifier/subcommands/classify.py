@@ -720,6 +720,7 @@ def build_parser(parser):
         help=('miminum coverage of alignments'))
     filters_parser.add_argument(
         '--min-qcovs',
+        default=0.90,
         type=float,
         help=('miminum coverage of alignments [%(default)s]'))
 
