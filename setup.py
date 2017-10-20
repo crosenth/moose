@@ -6,14 +6,14 @@ if sys.version_info < (3, 0):
     raise EnvironmentError('Please install using pip3 or python3')
 
 setuptools.setup(author='Chris Rosenthal',
-                 author_email='crosenth@uw.edu',
+                 author_email='crosenth@gmail.com',
                  description='Alignment based taxonomic classifier',
                  name='classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
                  entry_points={'console_scripts':
                                {'classifier = classifier:main'}},
                  version=classifier.version(),
-                 url='https://bitbucket.org/uwlabmed/classifier',
+                 url='https://github.com/crosenth/alignment_classifier',
                  package_data={'classifier': ['data/*']},
                  install_requires=['pandas>=0.17.1'],
                  license='GPLv3',

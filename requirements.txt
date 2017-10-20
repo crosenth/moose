@@ -1,7 +1,6 @@
-pandas
 sphinx
 ghp-import
 twine
-wheel
 tox
 flake8
+taxtastic
