@@ -224,9 +224,6 @@ log = logging.getLogger(__name__)
 
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
 
-RANKS = ['root', 'superkingdom', 'phylum', 'class',
-         'order', 'family', 'genus', 'species']
-
 
 def action(args):
     log.info('loading alignments ' + args.alignments)
@@ -301,23 +298,27 @@ def action(args):
     final results.  Cleaning up our own seq_info file is something else we
     need to do.
     '''
-    log.info('reading ' + args.seq_info)
-    seq_info = pd.read_csv(
-        args.seq_info,
-        usecols=['seqname', 'tax_id'],
-        dtype=str)
-    seq_info = seq_info.set_index('seqname')
-    # rename index to match alignment results column name
-    # TODO: make a note that sseqid is a required column in the alignments!
-    seq_info.index.name = 'sseqid'
-
-    aligns_len = len(aligns)
-    log.info('joining')
-    aligns = aligns.join(seq_info, on='sseqid', how='inner')
-    len_diff = aligns_len - len(aligns)
-    if len_diff:
-        log.warn('{} subject sequences dropped without '
-                 'records in seq_info file'.format(len_diff))
+    if args.seq_info:
+        log.info('reading ' + args.seq_info)
+        seq_info = pd.read_csv(
+            args.seq_info,
+            usecols=['seqname', 'tax_id'],
+            dtype=str)
+        seq_info = seq_info.set_index('seqname')
+        # rename index to match alignment results column name
+        # TODO: make a note that sseqid is a required column in the alignments!
+        seq_info.index.name = 'sseqid'
+        aligns_len = len(aligns)
+        log.info('joining')
+        aligns = aligns.join(seq_info, on='sseqid', how='inner')
+        len_diff = aligns_len - len(aligns)
+        if len_diff:
+            log.warn('{} subject sequences dropped without '
+                     'records in seq_info file'.format(len_diff))
+    elif 'staxid' not in aligns.columns:
+        raise ValueError('missing either staxid column or seq_info.csv file')
+    else:
+        aligns = aligns.rename(columns={'staxid': 'tax_id'})
 
     '''
     load the full taxonomy table.  Rank specificity as ordered from
@@ -685,9 +686,10 @@ def build_parser(parser):
         help=('alignment file with query and '
               'subject sequence hits and optional header'))
     parser.add_argument(
-        'seq_info', help='File mapping reference seq name to tax_id')
-    parser.add_argument(
         'taxonomy', help='Table defining the taxonomy for each tax_id')
+
+    parser.add_argument(
+        '--seq_info', help='map file seqname to tax_id')
 
     align_parser = parser.add_argument_group(
         title='alignment input header-less options',
@@ -838,7 +840,7 @@ def compound_assignment(assignments, taxonomy):
 
 def condense(assignments,
              taxonomy,
-             ranks=RANKS,
+             ranks,
              floor_rank=None,
              ceiling_rank=None,
              max_size=3,
