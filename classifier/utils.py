@@ -49,6 +49,8 @@ ALIGNMENT_DTYPES = {
     'assignment_rank': str,
     'pident': float,
     'tax_id': str,
+    'staxid': str,
+    'qcovhsp': int,
     'assignment_tax_id': str,
     'condensed_id': str,
     'accession': str,
