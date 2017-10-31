@@ -17,15 +17,15 @@ by Taxtastic (https://github.com/fhcrc/taxtastic).  The taxtable must reflect
 the taxonomy of the refset being aligned against.
 
 ``classifier classify -h``
-```
+`
 positional arguments:
   alignments            alignment file with query and subject sequence hits
                         and optional header
-  seq_info              File mapping reference seq name to tax_id
   taxonomy              Table defining the taxonomy for each tax_id
 
 optional arguments:
   -h, --help            show this help message and exit
+  --seq_info SEQ_INFO   map file seqname to tax_id
 
 alignment input header-less options:
   assumed comma-seperated with header if not specified
