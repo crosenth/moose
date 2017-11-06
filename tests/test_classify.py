@@ -54,8 +54,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--out', classify_out,
             '--details-out', details_out,
+            '--seq-info', seq_info,
             blast,
-            seq_info,
             taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
@@ -94,8 +94,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--specimen-map', specimen_map,
             '--out', classify_out,
             '--details-out', details_out,
+            '--seq-info', seq_info,
             blast,
-            seq_info,
             taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
@@ -136,8 +136,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--weights', weights,
             '--out', classify_out,
             '--details-out', details_out,
+            '--seq-info', seq_info,
             blast,
-            seq_info,
             taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
@@ -176,8 +176,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--specimen-map', specimen_map,
             '--out', classify_out,
             '--details-out', details_out,
+            '--seq-info', seq_info,
             blast,
-            seq_info,
             taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
@@ -219,8 +219,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--copy-numbers', self.copy_numbers,
             '--out', classify_out,
             '--details-out', details_out,
+            '--seq-info', seq_info,
             blast,
-            seq_info,
             taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
@@ -257,9 +257,10 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
         args = [
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--specimen-map', specimen_map,
+            '--seq-info', seq_info,
             '--details-out', details_out,
             '--out', classify_out,
-            blast, seq_info, taxonomy]
+            blast, taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -289,10 +290,11 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
         seq_info = os.path.join(thisdatadir, this_test, 'seq_info.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
-            blast, seq_info, taxonomy]
+            blast, taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -326,11 +328,12 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--weights', weights,
             '--details-out', details_out,
             '--out', classify_out,
-            blast, seq_info, taxonomy]
+            blast, taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -365,10 +368,10 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'classifications.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--specimen-map', specimen_map,
             '--out', classify_out,
             blast,
-            seq_info,
             taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
@@ -403,10 +406,11 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
-            blast, seq_info, taxonomy]
+            blast, taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -442,11 +446,12 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'classifications.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--specimen', 'specimen',
             '--weights', weights,
             '--out', classify_out,
-            blast, seq_info, taxonomy]
+            blast, taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -478,12 +483,13 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--specimen-map', specimen_map,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--hits-below-threshold',
             '--details-out', details_out,
             '--out', classify_out,
-            blast, seq_info, taxonomy]
+            blast, taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -513,10 +519,11 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
         details_out = os.path.join(outdir, 'details.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--best-n-hits', 3,
             '--details-out', details_out,
             '--out', classify_out,
-            blast, seq_info, taxonomy]
+            blast, taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -558,13 +565,13 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
                 thisdatadir, this_test, 'details.csv.bz2')
 
             args = [
+                '--seq-info', seq_info,
                 '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
                 '--max-pident', '100',
                 '--min-pident', '99',
                 '--out', classify_out,
                 '--details-out', details_out,
                 blast,
-                seq_info,
                 taxonomy]
 
             log.info(self.log_info.format(' '.join(map(str, args))))
@@ -598,12 +605,12 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--min-qcovs', '99',
             '--out', classify_out,
             '--details-out', details_out,
             blast,
-            seq_info,
             taxonomy]
 
         log.info(self.log_info.format(' '.join(map(str, args))))

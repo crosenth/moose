@@ -208,15 +208,15 @@ assigned tax_ids of a higher threshold that *could* represent invalid tax_ids
 
 TODO: generate rank thresholds based on taxonomy input
 """
-
+import csv
 import itertools
+import math
 import logging
+import pandas as pd
 import operator
 import os
+import numpy
 import sys
-
-import pandas as pd
-import math
 
 from classifier import utils, _data as datadir
 
@@ -300,14 +300,8 @@ def action(args):
     '''
     if args.seq_info:
         log.info('reading ' + args.seq_info)
-        seq_info = pd.read_csv(
-            args.seq_info,
-            usecols=['seqname', 'tax_id'],
-            dtype=str)
-        seq_info = seq_info.set_index('seqname')
-        # rename index to match alignment results column name
+        seq_info = read_seqinfo(args.seq_info, set(aligns['sseqid'].tolist()))
         # TODO: make a note that sseqid is a required column in the alignments!
-        seq_info.index.name = 'sseqid'
         aligns_len = len(aligns)
         log.info('joining')
         aligns = aligns.join(seq_info, on='sseqid', how='inner')
@@ -328,7 +322,9 @@ def action(args):
     specify the rank order in here somewhere.
     '''
     log.info('reading ' + args.taxonomy)
-    taxonomy = pd.read_csv(args.taxonomy, dtype=str).set_index('tax_id')
+    taxonomy = read_taxonomy(args.taxonomy, set(aligns['tax_id'].tolist()))
+    taxonomy = taxonomy.set_index('tax_id').dropna(axis='columns', how='all')
+
     ranks = taxonomy.columns.tolist()
     ranks = ranks[ranks.index('root'):]
 
@@ -689,7 +685,7 @@ def build_parser(parser):
         'taxonomy', help='Table defining the taxonomy for each tax_id')
 
     parser.add_argument(
-        '--seq_info', help='map file seqname to tax_id')
+        '--seq-info', help='map file seqname to tax_id')
 
     align_parser = parser.add_argument_group(
         title='alignment input header-less options',
@@ -1186,6 +1182,39 @@ def raw_filtering(align, min_qcovs=None,
         align_len = align_post_len
 
     return align
+
+
+def read_seqinfo(path, ids):
+    """
+    Iterates through seq_info file only including
+    necessary seqname to tax_id mappings
+    """
+    with utils.opener()(path) as infofile:
+        seq_info = csv.reader(infofile)
+        header = next(seq_info)
+        seqname, tax_id = header.index('seqname'), header.index('tax_id')
+        seq_info = (row for row in seq_info if row[seqname] in ids)
+        seq_info = {row[seqname]: row[tax_id] for row in seq_info}
+    return pd.Series(data=seq_info, name='tax_id')
+
+
+def read_taxonomy(path, ids):
+    """
+    Iterates through taxonomy file only including necessary lineages
+    """
+    with utils.opener()(path) as taxfile:
+        taxcsv = csv.reader(taxfile)
+        header = next(taxcsv)
+        tax_id, root = header.index('tax_id'), header.index('root')
+        taxcsv = (r for r in taxcsv if r[tax_id] in ids)
+        tax_ids = set(i for r in taxcsv for i in r[root:] if i != '')
+    with utils.opener()(path) as taxfile:
+        taxcsv = csv.reader(taxfile)
+        header = next(taxcsv)
+        taxcsv = (r for r in taxcsv if r[tax_id] in tax_ids)
+        taxcsv = (map(lambda x: x if x else numpy.nan, r) for r in taxcsv)
+        data = [dict(zip(header, r)) for r in taxcsv]
+    return pd.DataFrame(data=data, columns=header)
 
 
 def star(df, starred):
