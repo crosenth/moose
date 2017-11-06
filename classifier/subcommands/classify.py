@@ -244,10 +244,6 @@ def action(args):
         log.info('blast results empty, exiting.')
         return
 
-    if all(q in aligns.columns for q in ['qstart', 'qend', 'qlen']):
-        log.info('calculating global qcovs')
-        aligns = qcovs(aligns)
-
     if any([args.min_qcovs, args.max_pident, args.min_pident]):
         log.info('filtering results by pident and qcovs')
         aligns = raw_filtering(
@@ -1126,12 +1122,6 @@ def pct(s):
     """Calculate series pct something
     """
     return s / s.sum() * 100
-
-
-def qcovs(df):
-    df.loc[:, 'qcovs'] = (
-        (df['qend'] - df['qstart'] + 1) / df['qlen'] * 100)
-    return df
 
 
 def raw_filtering(align, min_qcovs=None,
