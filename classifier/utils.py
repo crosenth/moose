@@ -83,7 +83,7 @@ def opener(mode='rt'):
         elif f == '-':
             return sys.stdin if 'r' in mode else sys.stdout
         elif f.endswith('.bz2'):
-            return bz2.BZ2File(f, mode)
+            return bz2.open(f, mode)
         elif f.endswith('.gz'):
             return gzip.open(f, mode)
         else:
