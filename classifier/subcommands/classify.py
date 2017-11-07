@@ -678,8 +678,9 @@ def build_parser(parser):
         help=('alignment file with query and '
               'subject sequence hits and optional header'))
     parser.add_argument(
-        'taxonomy', help='Table defining the taxonomy for each tax_id')
-
+        '--taxonomy',
+        required=True,
+        help='Table defining taxonomic lineages for each tax_id')
     parser.add_argument(
         '--seq-info', help='map file seqname to tax_id')
 
