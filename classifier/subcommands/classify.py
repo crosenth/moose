@@ -235,10 +235,15 @@ def action(args):
                    'sstart', 'send', 'evalue', 'bitscore'],
             dtype=utils.ALIGNMENT_DTYPES)
     else:
+        if args.columns:
+            conv = utils.ALIGNMENT_CONVERT
+            names = [conv.get(c, c) for c in args.columns.split(',')]
+        else:
+            names = None
         aligns = pd.read_csv(
             args.alignments,
             dtype=utils.ALIGNMENT_DTYPES,
-            names=args.columns.split(',') if args.columns else None)
+            names=names)
 
     if aligns.empty:
         log.info('blast results empty, exiting.')
@@ -294,7 +299,9 @@ def action(args):
     final results.  Cleaning up our own seq_info file is something else we
     need to do.
     '''
-    if args.seq_info:
+    if 'staxid' in aligns.columns:
+        aligns = aligns.rename(columns={'staxid': 'tax_id'})
+    elif args.seq_info:
         log.info('reading ' + args.seq_info)
         seq_info = read_seqinfo(args.seq_info, set(aligns['sseqid'].tolist()))
         # TODO: make a note that sseqid is a required column in the alignments!
@@ -305,10 +312,8 @@ def action(args):
         if len_diff:
             log.warn('{} subject sequences dropped without '
                      'records in seq_info file'.format(len_diff))
-    elif 'staxid' not in aligns.columns:
-        raise ValueError('missing either staxid column or seq_info.csv file')
     else:
-        aligns = aligns.rename(columns={'staxid': 'tax_id'})
+        raise ValueError('missing either staxid column or seq_info.csv file')
 
     '''
     load the full taxonomy table.  Rank specificity as ordered from
