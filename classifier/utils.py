@@ -27,34 +27,40 @@ import sys
 log = logging.getLogger(__name__)
 
 ALIGNMENT_DTYPES = {
-    'qseqid': str,
-    'sseqid': str,
-    'pident': float,
-    'mismatch': float,
-    'qstart': int,
-    'qend': int,
-    'qlen': int,
-    'gapopen': int,
-    'sstart': int,
-    'send': int,
-    'evalue': float,
-    'bitscore': float,
-    'length': int,
-    'qcovs': float,
-    'specimen': str,
-    'assignment_id': str,
-    'tax_name': str,
-    'rank': str,
-    'assignment_tax_name': str,
-    'assignment_rank': str,
-    'pident': float,
-    'tax_id': str,
-    'staxid': str,
-    'qcovhsp': int,
-    'assignment_tax_id': str,
-    'condensed_id': str,
     'accession': str,
-    'qseqid': str}
+    'assignment_id': str,
+    'assignment_rank': str,
+    'assignment_tax_id': str,
+    'assignment_tax_name': str,
+    'bitscore': float,
+    'condensed_id': str,
+    'evalue': float,
+    'gapopen': int,
+    'pident': float,
+    'length': int,
+    'mismatch': float,
+    'pident': float,
+    'qaccver': float,
+    'qcovhsp': int,
+    'qcovs': float,
+    'qend': int,
+    'qseqid': str,
+    'qstart': int,
+    'rank': str,
+    'saccver': str,
+    'send': int,
+    'specimen': str,
+    'sseqid': str,
+    'sstart': int,
+    'staxid': str,
+    'tax_id': str,
+    'tax_name': str
+}
+
+ALIGNMENT_CONVERT = {
+    'qaccver': 'qseqid',
+    'saccver': 'sseqid'
+}
 
 
 def get_compression(io):
