@@ -55,8 +55,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            blast,
-            taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -95,8 +95,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            blast,
-            taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -137,8 +137,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            blast,
-            taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -177,8 +177,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            blast,
-            taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -220,8 +220,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            blast,
-            taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -260,7 +260,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--seq-info', seq_info,
             '--details-out', details_out,
             '--out', classify_out,
-            blast, taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -294,7 +295,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
-            blast, taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -333,7 +335,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--weights', weights,
             '--details-out', details_out,
             '--out', classify_out,
-            blast, taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -371,8 +374,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--seq-info', seq_info,
             '--specimen-map', specimen_map,
             '--out', classify_out,
-            blast,
-            taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -410,7 +413,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
-            blast, taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -451,7 +455,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--specimen', 'specimen',
             '--weights', weights,
             '--out', classify_out,
-            blast, taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -489,7 +494,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--hits-below-threshold',
             '--details-out', details_out,
             '--out', classify_out,
-            blast, taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -523,7 +529,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--best-n-hits', 3,
             '--details-out', details_out,
             '--out', classify_out,
-            blast, taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -571,8 +578,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
                 '--min-pident', '99',
                 '--out', classify_out,
                 '--details-out', details_out,
-                blast,
-                taxonomy]
+                '--taxonomy', taxonomy,
+                blast]
 
             log.info(self.log_info.format(' '.join(map(str, args))))
 
@@ -610,8 +617,8 @@ class TestClassify(TestBase, TestCaseSuppressOutput):
             '--min-qcovs', '99',
             '--out', classify_out,
             '--details-out', details_out,
-            blast,
-            taxonomy]
+            '--taxonomy', taxonomy,
+            blast]
 
         log.info(self.log_info.format(' '.join(map(str, args))))
 

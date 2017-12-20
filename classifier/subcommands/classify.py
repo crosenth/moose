@@ -264,6 +264,7 @@ def action(args):
             args.specimen_map,
             names=['qseqid', 'specimen'],
             usecols=['qseqid', 'specimen'],
+            header=None,
             dtype=str)
         spec_map = spec_map.drop_duplicates()
         spec_map = spec_map.set_index('qseqid')
@@ -684,10 +685,13 @@ def build_parser(parser):
               'subject sequence hits and optional header'))
     parser.add_argument(
         '--taxonomy',
+        metavar='csv',
         required=True,
         help='Table defining taxonomic lineages for each tax_id')
     parser.add_argument(
-        '--seq-info', help='map file seqname to tax_id')
+        '--seq-info',
+        metavar='csv',
+        help='map file seqname to tax_id')
 
     align_parser = parser.add_argument_group(
         title='alignment input header-less options',
@@ -702,26 +706,28 @@ def build_parser(parser):
         help=('specify columns for header-less comma-seperated values'))
 
     filters_parser = parser.add_argument_group('filtering options')
+    # FIXME: remove this and create --max-mismatch argument instead
     filters_parser.add_argument(
-        '--best-n-hits', type=int,
-        help=('For each qseqid sequence, filter out all but the best N hits. '
+        '--best-n-hits',
+        type=int,
+        metavar='N',
+        help=('For each qseqid sequence filter out all but the best N hits. '
               'Used in conjunction with alignment "mismatch" column.'))
     filters_parser.add_argument(
         '--max-pident',
         type=float,
-        help=('miminum coverage of aligments'))
-    filters_parser.add_argument(
-        '--min-cluster-size', default=1, metavar='INTEGER', type=int,
-        help=('minimum cluster size to include '
-              'in classification output [%(default)s]'))
+        metavar='PERCENT',
+        help='maximum percent identity of aligments')
     filters_parser.add_argument(
         '--min-pident',
         type=float,
-        help=('miminum coverage of alignments'))
+        metavar='PERCENT',
+        help=('minimum coverage of alignments'))
     filters_parser.add_argument(
         '--min-qcovs',
         type=float,
-        help=('miminum coverage of alignments [%(default)s]'))
+        metavar='PERCENT',
+        help=('minimum coverage of alignments'))
 
     # TODO: add subcommand --use-qcovs, default False, indicating that
     # "qcovs" column should be used directly; by default, coverage is
@@ -737,7 +743,10 @@ def build_parser(parser):
               'sequence has pairwise identity with a query sequence of at '
               'least PERCENT will be marked with an asterisk [%(default)s]'))
     assignment_parser.add_argument(
-        '--max-group-size', metavar='INTEGER', default=3, type=int,
+        '--max-group-size',
+        metavar='N',
+        default=3,
+        type=int,
         help=('group multiple target-rank assignments that excede a '
               'threshold to a higher rank [%(default)s]'))
     assignment_parser.add_argument(
@@ -760,9 +769,9 @@ def build_parser(parser):
     opts_group.add_argument(
         '--specimen', metavar='LABEL', help='Single group label for reads')
     opts_group.add_argument(
-        '--specimen-map', metavar='CSV',
-        help=('CSV file with columns (name, specimen) '
-              'assigning sequences to groups.'))
+        '--specimen-map',
+        metavar='CSV',
+        help='CSV file with no header mapping sequence to specimen group')
     opts_parser.add_argument(
         '-w', '--weights', metavar='CSV',
         help=('Optional headless csv file with columns \'seqname\', '
