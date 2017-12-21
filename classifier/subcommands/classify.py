@@ -501,6 +501,7 @@ def action(args):
         weights_file = pd.read_csv(
             args.weights,
             names=['qseqid', 'weight'],
+            header=None,
             dtype=dict(qseqid=str, weight=float),
             index_col='qseqid')
         weights = weights.join(weights_file)
@@ -774,7 +775,7 @@ def build_parser(parser):
         help='CSV file with no header mapping sequence to specimen group')
     opts_parser.add_argument(
         '-w', '--weights', metavar='CSV',
-        help=('Optional headless csv file with columns \'seqname\', '
+        help=('Header-less csv file with columns \'seqname\', '
               '\'count\' providing weights for each query sequence described  '
               'in the alignment input (used, for example, to describe cluster '
               'sizes for corresponding cluster OTUs).'))
