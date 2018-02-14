@@ -1,4 +1,3 @@
-import classifier
 import setuptools
 import sys
 
@@ -8,11 +7,12 @@ if sys.version_info < (3, 0):
 setuptools.setup(author='Chris Rosenthal',
                  author_email='crosenth@gmail.com',
                  description='Alignment based taxonomic classifier',
+                 keywords=['ncbi', 'blast', 'classifier', 'genetics', 'genomics'],
                  name='classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
-                 entry_points={'console_scripts':
-                               {'classifier = classifier:main'}},
-                 version=classifier.version(),
+                 entry_points={
+                     'console_scripts': {'classify = classifier.classify:main'}},
+                 version=0.3,
                  url='https://github.com/crosenth/alignment_classifier',
                  package_data={'classifier': ['data/*']},
                  install_requires=['pandas>=0.17.1'],
@@ -23,6 +23,6 @@ setuptools.setup(author='Chris Rosenthal',
                      'Environment :: Console',
                      'Operating System :: OS Independent',
                      'Intended Audience :: End Users/Desktop',
-                     ('License :: OSI Approved :: '
-                      'GNU General Public License v3 (GPLv3)'),
+                     'License :: OSI Approved :: '
+                     'GNU General Public License v3 (GPLv3)',
                      'Programming Language :: Python :: 3 :: Only'])

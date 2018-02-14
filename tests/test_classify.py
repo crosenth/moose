@@ -1,7 +1,6 @@
 """
 Test classifier
 """
-
 import bz2
 import csv
 import filecmp
@@ -9,19 +8,19 @@ import logging
 import os
 import sys
 
-from classifier import main
+from classifier import classify
 
-from tests import TestBase, TestCaseSuppressOutput, datadir as datadir
+from tests import TestBase, datadir as datadir
 
 log = logging.getLogger(__name__)
 
 
-class TestClassify(TestBase, TestCaseSuppressOutput):
+class TestClassify(TestBase):
 
     def main(self, arguments):
-        main(['classify'] + [str(a) for a in arguments])
+        classify.main(str(a) for a in arguments)
 
-    log_info = 'classifier classify {}'
+    log_info = 'classify {}'
 
     copy_numbers = os.path.join(datadir, 'rrnDB_16S_copy_num.csv.bz2')
 

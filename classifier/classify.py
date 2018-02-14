@@ -208,7 +208,10 @@ assigned tax_ids of a higher threshold that *could* represent invalid tax_ids
 
 TODO: generate rank thresholds based on taxonomy input
 """
+import argparse
+import bz2
 import csv
+import gzip
 import itertools
 import math
 import logging
@@ -218,39 +221,85 @@ import os
 import numpy
 import sys
 
-from classifier import utils, _data as datadir
-
-log = logging.getLogger(__name__)
-
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
+
+ALIGNMENT_DTYPES = {
+    'accession': str,
+    'assignment_id': str,
+    'assignment_rank': str,
+    'assignment_tax_id': str,
+    'assignment_tax_name': str,
+    'bitscore': float,
+    'condensed_id': str,
+    'evalue': float,
+    'gapopen': int,
+    'pident': float,
+    'length': int,
+    'mismatch': float,
+    'pident': float,
+    'qaccver': float,
+    'qcovhsp': int,
+    'qcovs': float,
+    'qend': int,
+    'qseqid': str,
+    'qstart': int,
+    'rank': str,
+    'saccver': str,
+    'send': int,
+    'specimen': str,
+    'sseqid': str,
+    'sstart': int,
+    'staxid': str,
+    'tax_id': str,
+    'tax_name': str
+}
+
+ALIGNMENT_CONVERT = {
+    'qaccver': 'qseqid',
+    'saccver': 'sseqid'
+}
+
+
+def main(argv=sys.argv):
+    action(build_parser().parse_args(args=argv))
+
+
+def get_compression(io):
+    if io is sys.stdout:
+        compression = None
+    else:
+        compress_ops = {'.gz': 'gzip', '.bz2': 'bz2'}
+        ext = os.path.splitext(io)[-1]
+        compression = compress_ops.get(ext, None)
+    return compression
 
 
 def action(args):
-    log.info('loading alignments ' + args.alignments)
+    logging.info('loading alignments ' + args.alignments)
     if args.blast6in:
         aligns = pd.read_table(
             args.alignments,
             names=['qseqid', 'sseqid', 'pident', 'length',
                    'mismatch', 'gapopen', 'qstart', 'qend',
                    'sstart', 'send', 'evalue', 'bitscore'],
-            dtype=utils.ALIGNMENT_DTYPES)
+            dtype=ALIGNMENT_DTYPES)
     else:
         if args.columns:
-            conv = utils.ALIGNMENT_CONVERT
+            conv = ALIGNMENT_CONVERT
             names = [conv.get(c, c) for c in args.columns.split(',')]
         else:
             names = None
         aligns = pd.read_csv(
             args.alignments,
-            dtype=utils.ALIGNMENT_DTYPES,
+            dtype=ALIGNMENT_DTYPES,
             names=names)
 
     if aligns.empty:
-        log.info('blast results empty, exiting.')
+        logging.info('blast results empty, exiting.')
         return
 
     if any([args.min_qcovs, args.max_pident, args.min_pident]):
-        log.info('filtering results by pident and qcovs')
+        logging.info('filtering results by pident and qcovs')
         aligns = raw_filtering(
             aligns, args.min_qcovs, args.max_pident, args.min_pident)
 
@@ -281,7 +330,7 @@ def action(args):
     qseqids = aligns[['specimen', 'qseqid']].drop_duplicates()
 
     msg = 'successfully loaded {} alignments from {} query sequences'
-    log.info(msg.format(len(aligns), len(qseqids)))
+    logging.info(msg.format(len(aligns), len(qseqids)))
 
     '''
     Remove query sequences with no alignment information.
@@ -303,16 +352,16 @@ def action(args):
     if 'staxid' in aligns.columns:
         aligns = aligns.rename(columns={'staxid': 'tax_id'})
     elif args.seq_info:
-        log.info('reading ' + args.seq_info)
+        logging.info('reading ' + args.seq_info)
         seq_info = read_seqinfo(args.seq_info, set(aligns['sseqid'].tolist()))
         # TODO: make a note that sseqid is a required column in the alignments!
         aligns_len = len(aligns)
-        log.info('joining')
+        logging.info('joining')
         aligns = aligns.join(seq_info, on='sseqid', how='inner')
         len_diff = aligns_len - len(aligns)
         if len_diff:
-            log.warn('{} subject sequences dropped without '
-                     'records in seq_info file'.format(len_diff))
+            logging.warning('{} subject sequences dropped without '
+                            'records in seq_info file'.format(len_diff))
     else:
         raise ValueError('missing either staxid column or seq_info.csv file')
 
@@ -323,7 +372,7 @@ def action(args):
     FIXME: Instead of using column order to judge rank order just
     specify the rank order in here somewhere.
     '''
-    log.info('reading ' + args.taxonomy)
+    logging.info('reading ' + args.taxonomy)
     taxonomy = read_taxonomy(args.taxonomy, set(aligns['tax_id'].tolist()))
     taxonomy = taxonomy.set_index('tax_id').dropna(axis='columns', how='all')
 
@@ -332,13 +381,13 @@ def action(args):
 
     # now combine just the rank columns to the alignment results
     aligns_len = len(aligns)
-    log.info('joining with alignments')
+    logging.info('joining with alignments')
     aligns = aligns.join(
         taxonomy[['tax_name', 'rank'] + ranks], on='tax_id', how='inner')
     len_diff = aligns_len - len(aligns)
     if len_diff:
         msg = '{} subject sequences dropped without records in taxonomy file'
-        log.warn(msg.format(len_diff))
+        logging.warning(msg.format(len_diff))
 
     # load the default rank thresholds
     rank_thresholds = load_rank_thresholds(usecols=ranks)
@@ -362,7 +411,7 @@ def action(args):
     aligns_columns = aligns.columns
 
     # assign assignment tax ids based on pident and thresholds
-    log.info('selecting best alignments for classification')
+    logging.info('selecting best alignments for classification')
     aligns_len = float(len(aligns))
 
     valid_hits = aligns.groupby(
@@ -379,8 +428,8 @@ def action(args):
     aligns = valid_hits
 
     if aligns.empty:
-        log.info('all alignment results filtered, '
-                 'returning [no blast results]')
+        logging.info('all alignment results filtered, '
+                     'returning [no blast results]')
         assignment_columns = ['assignment_rank', 'assignment_threshold',
                               'assignment_tax_name', 'condensed_id', 'starred',
                               'assignment', 'assignment_hash',
@@ -390,7 +439,7 @@ def action(args):
     else:
         aligns_post_len = len(aligns)
         msg = '{} alignments selected for classification'
-        log.info(msg.format(aligns_post_len))
+        logging.info(msg.format(aligns_post_len))
 
         if 'mismatch' in aligns.columns and args.best_n_hits:
             aligns_len = len(aligns)
@@ -401,10 +450,10 @@ def action(args):
                 group_keys=False).apply(filter_mismatches, args.best_n_hits)
 
             aligns_post_len = len(aligns)
-            log.info('{} ({:.0%}) hits remain after filtering '
-                     'on mismatches (--best_n_hits)'.format(
-                         aligns_post_len,
-                         aligns_post_len / aligns_len))
+            logging.info('{} ({:.0%}) hits remain after filtering '
+                         'on mismatches (--best_n_hits)'.format(
+                             aligns_post_len,
+                             aligns_post_len / aligns_len))
 
         # drop unneeded tax and threshold columns to free memory
         # TODO: see if this is necessary anymore since latest Pandas release
@@ -426,7 +475,7 @@ def action(args):
 
         # create condensed assignment hashes by qseqid
         msg = 'condensing group tax_ids to size {}'.format(args.max_group_size)
-        log.info(msg)
+        logging.info(msg)
         aligns = aligns.groupby(
             by=['specimen', 'qseqid'], sort=False, group_keys=False)
         aligns = aligns.apply(
@@ -450,7 +499,7 @@ def action(args):
 
         # assign names to assignment_hashes
         aligns = aligns.sort_values(by='assignment_hash')
-        log.info('creating compound assignments')
+        logging.info('creating compound assignments')
         aligns = aligns.groupby(
             by=['specimen', 'assignment_hash'], sort=False, group_keys=False)
         aligns = aligns.apply(assign, tax_dict)
@@ -477,7 +526,7 @@ def action(args):
     aligns.loc[no_hits, 'assignment_hash'] = 0
 
     # concludes our alignment details, on to output summary
-    log.info('summarizing output')
+    logging.info('summarizing output')
 
     # index by specimen and assignment_hash and add assignment column
     index = ['specimen', 'assignment_hash']
@@ -606,7 +655,7 @@ def action(args):
 
         aligns.to_csv(
             args.details_out,
-            compression=utils.get_compression(args.details_out),
+            compression=get_compression(args.details_out),
             columns=details_columns,
             header=True,
             index=False,
@@ -620,7 +669,7 @@ def action(args):
         args.out,
         index=True,
         float_format='%.2f',
-        compression=utils.get_compression(args.out))
+        compression=get_compression(args.out))
 
 
 def assign(df, tax_dict):
@@ -674,11 +723,11 @@ def best_rank(s, ranks):
 
 
 def test():
-    import argparse
-    return build_parser(argparse.ArgumentParser())
+    return build_parser()
 
 
-def build_parser(parser):
+def build_parser():
+    parser = argparse.ArgumentParser()
     # required inputs
     parser.add_argument(
         'alignments',
@@ -806,6 +855,7 @@ def build_parser(parser):
         default=sys.stdout,
         metavar='FILE',
         help="classification results [default: stdout]")
+    return parser
 
 
 def calculate_pct_references(df, pct_reference):
@@ -906,7 +956,8 @@ def condense(assignments,
         ceiling_rank = ranks[ranks.index(ceiling_rank) + 1]
 
         # recurse each branch down the tax tree
-        for _, g in utils.groupbyl(groups.items(), operator.itemgetter(1)):
+        branches = sorted(groups.items(), key=operator.itemgetter(1))
+        for _, g in itertools.groupby(branches, operator.itemgetter(1)):
             g = walk_taxtree(
                 dict(g), ceiling_rank, max_size - num_groups + 1)
             groups.update(g)
@@ -1060,13 +1111,14 @@ def join_thresholds(df, thresholds, ranks):
         tax_names = df['tax_name'].drop_duplicates()
         msg = ('dropping alignment `{}\', no valid '
                'taxonomic threshold information found')
-        tax_names.apply(lambda x: log.warn(msg.format(x)))
+        tax_names.apply(lambda x: logging.warning(msg.format(x)))
 
     return with_thresholds
 
 
-def load_rank_thresholds(
-        path=os.path.join(datadir, 'rank_thresholds.csv'), usecols=None):
+def load_rank_thresholds(path=os.path.join(
+        os.path.dirname(__file__), 'data', 'rank_thresholds.csv'),
+        usecols=None):
     """
     Load a rank-thresholds file.  If no argument is specified the default
     rank_threshold_defaults.csv file will be loaded.
@@ -1156,8 +1208,8 @@ def raw_filtering(align, min_qcovs=None,
 
         len_diff = align_len - align_post_len
         if len_diff:
-            log.warn('dropping {} alignments below '
-                     'coverage threshold'.format(len_diff))
+            logging.warning('dropping {} alignments below '
+                            'coverage threshold'.format(len_diff))
 
         align_len = align_post_len
 
@@ -1169,7 +1221,7 @@ def raw_filtering(align, min_qcovs=None,
 
         len_diff = align_len - align_post_len
         if len_diff:
-            log.warn('dropping {} alignments above max_pident'.format(
+            logging.warning('dropping {} alignments above max_pident'.format(
                 len_diff))
 
         align_len = align_post_len
@@ -1182,7 +1234,7 @@ def raw_filtering(align, min_qcovs=None,
 
         len_diff = align_len - align_post_len
         if len_diff:
-            log.warn('dropping {} alignments below min_pident'.format(
+            logging.warning('dropping {} alignments below min_pident'.format(
                 len_diff))
 
         align_len = align_post_len
@@ -1195,7 +1247,7 @@ def read_seqinfo(path, ids):
     Iterates through seq_info file only including
     necessary seqname to tax_id mappings
     """
-    with utils.opener()(path) as infofile:
+    with opener(path) as infofile:
         seq_info = csv.reader(infofile)
         header = next(seq_info)
         seqname, tax_id = header.index('seqname'), header.index('tax_id')
@@ -1208,19 +1260,42 @@ def read_taxonomy(path, ids):
     """
     Iterates through taxonomy file only including necessary lineages
     """
-    with utils.opener()(path) as taxfile:
+    with opener(path) as taxfile:
         taxcsv = csv.reader(taxfile)
         header = next(taxcsv)
         tax_id, root = header.index('tax_id'), header.index('root')
         taxcsv = (r for r in taxcsv if r[tax_id] in ids)
         tax_ids = set(i for r in taxcsv for i in r[root:] if i != '')
-    with utils.opener()(path) as taxfile:
+    with opener(path) as taxfile:
         taxcsv = csv.reader(taxfile)
         header = next(taxcsv)
         taxcsv = (r for r in taxcsv if r[tax_id] in tax_ids)
         taxcsv = (map(lambda x: x if x else numpy.nan, r) for r in taxcsv)
         data = [dict(zip(header, r)) for r in taxcsv]
     return pd.DataFrame(data=data, columns=header)
+
+
+def opener(f, mode='rt'):
+    """Factory for creating file objects
+
+    Keyword Arguments:
+        - mode -- A string indicating how the file is to be opened. Accepts the
+            same values as the builtin open() function.
+        - bufsize -- The file's desired buffer size. Accepts the same values as
+            the builtin open() function.
+    """
+    stream = None
+    if f is sys.stdout or f is sys.stdin:
+        stream = f
+    elif f == '-':
+        stream = sys.stdin if 'r' in mode else sys.stdout
+    elif f.endswith('.bz2'):
+        stream = bz2.open(f, mode)
+    elif f.endswith('.gz'):
+        stream = gzip.open(f, mode)
+    else:
+        stream = open(f, mode)
+    return stream
 
 
 def star(df, starred):

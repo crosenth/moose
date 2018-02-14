@@ -57,17 +57,3 @@ class TestBase(unittest.TestCase):
 
     def data(self, fname):
         return os.path.join(datadir, fname)
-
-
-class TestCaseSuppressOutput(unittest.TestCase):
-
-    def setUp(self):
-        self.funcname = '_'.join(self.id().split('.')[-2:])
-        self.suppress_output = log.getEffectiveLevel() >= logging.INFO
-        if self.suppress_output:
-            sys.stdout = sys.stderr = open(os.devnull, 'w')
-
-    def tearDown(self):
-        if self.suppress_output:
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
