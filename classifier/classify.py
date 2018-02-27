@@ -216,6 +216,7 @@ import itertools
 import math
 import logging
 import pandas as pd
+import pkg_resources
 import operator
 import os
 import numpy
@@ -260,8 +261,27 @@ ALIGNMENT_CONVERT = {
 }
 
 
-def main(argv=sys.argv):
-    action(build_parser().parse_args(args=argv))
+def setup_logging(namespace):
+    """
+    """
+    log = opener(namespace.log, 'a')
+    loglevel = {
+        0: logging.ERROR,
+        1: logging.WARNING,
+        2: logging.INFO,
+        3: logging.DEBUG,
+    }.get(namespace.verbosity, logging.DEBUG)
+    if namespace.verbosity > 1:
+        logformat = '%(levelname)s classifier %(message)s'
+    else:
+        logformat = 'classifier %(message)s'
+    logging.basicConfig(stream=log, format=logformat, level=loglevel)
+
+
+def main(argv=sys.argv[1:]):
+    namespace = build_parser().parse_args(args=argv)
+    setup_logging(namespace)
+    action(namespace)
 
 
 def get_compression(io):
@@ -742,6 +762,32 @@ def build_parser():
         '--seq-info',
         metavar='csv',
         help='map file seqname to tax_id')
+
+    package_parser = parser.add_argument_group(
+        title='logging and version options')
+    package_parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=pkg_resources.get_distribution('classifier').version,
+        help='Print the version number and exit')
+    package_parser.add_argument(
+        '-l', '--log',
+        metavar='FILE',
+        default=sys.stdout,
+        help='Send logging to a file')
+    package_parser.add_argument(
+        '-v', '--verbose',
+        action='count',
+        dest='verbosity',
+        default=0,
+        help='Increase verbosity of screen output '
+             '(eg, -v is verbose, -vv more so)')
+    package_parser.add_argument(
+        '-q', '--quiet',
+        action='store_const',
+        dest='verbosity',
+        const=0,
+        help='Suppress output')
 
     align_parser = parser.add_argument_group(
         title='alignment input header-less options',
