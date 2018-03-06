@@ -30,7 +30,7 @@ Running the program
       alignments            alignment file with query and subject sequence hits
                             and optional header
       seq_info              File mapping reference seq name to tax_id
-      taxonomy              Table defining the taxonomy for each tax_id
+      lineages              Table defining the lineages for each tax_id
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -119,7 +119,7 @@ seq_info
 A csv file with minimum columns **seqname** and **tax_id**.  Additional
 columns will be included in the detailed output.
 
-taxonomy
+lineages
 ========
 
 A csv file with columns **tax_id**, **rank** and **tax_name**, plus at least
@@ -206,7 +206,7 @@ Tax_ids of valid alignment (that meet their rank thresholds) may be
 assigned tax_ids of a higher threshold that *could* represent invalid tax_ids
 (tax_ids that may *not* have passed the rank threshold).
 
-TODO: generate rank thresholds based on taxonomy input
+TODO: generate rank thresholds based on lineages input
 """
 import argparse
 import bz2
@@ -360,7 +360,7 @@ def action(args):
     aligns = aligns[aligns['sseqid'].notnull()]
 
     '''
-    Load seq_info as a bridge to the sequence taxonomy.  Additional
+    Load seq_info as a bridge to the sequence lineages.  Additional
     columns can be specified to be included in the details-out file
     such as accession number
 
@@ -386,27 +386,27 @@ def action(args):
         raise ValueError('missing either staxid column or seq_info.csv file')
 
     '''
-    load the full taxonomy table.  Rank specificity as ordered from
+    load the full lineages table.  Rank specificity as ordered from
     left (less specific) to right (more specific)
 
     FIXME: Instead of using column order to judge rank order just
     specify the rank order in here somewhere.
     '''
-    logging.info('reading ' + args.taxonomy)
-    taxonomy = read_taxonomy(args.taxonomy, set(aligns['tax_id'].tolist()))
-    taxonomy = taxonomy.set_index('tax_id').dropna(axis='columns', how='all')
+    logging.info('reading ' + args.lineages)
+    lineages = read_lineages(args.lineages, set(aligns['tax_id'].tolist()))
+    lineages = lineages.set_index('tax_id').dropna(axis='columns', how='all')
 
-    ranks = taxonomy.columns.tolist()
+    ranks = lineages.columns.tolist()
     ranks = ranks[ranks.index('root'):]
 
     # now combine just the rank columns to the alignment results
     aligns_len = len(aligns)
     logging.info('joining with alignments')
     aligns = aligns.join(
-        taxonomy[['tax_name', 'rank'] + ranks], on='tax_id', how='inner')
+        lineages[['tax_name', 'rank'] + ranks], on='tax_id', how='inner')
     len_diff = aligns_len - len(aligns)
     if len_diff:
-        msg = '{} subject sequences dropped without records in taxonomy file'
+        msg = '{} subject sequences dropped without records in lineages file'
         logging.warning(msg.format(len_diff))
 
     # load the default rank thresholds
@@ -480,9 +480,9 @@ def action(args):
         for c in ranks + rank_thresholds_cols:
             aligns = aligns.drop(c, axis=1)
 
-        # join with taxonomy for tax_name and rank
+        # join with lineages for tax_name and rank
         aligns = aligns.join(
-            taxonomy[['tax_name', 'rank']],
+            lineages[['tax_name', 'rank']],
             rsuffix='_assignment',
             on=ASSIGNMENT_TAX_ID)
 
@@ -491,7 +491,7 @@ def action(args):
             columns={'tax_name_assignment': 'assignment_tax_name',
                      'rank_assignment': 'assignment_rank'})
 
-        tax_dict = {i: t.to_dict() for i, t in taxonomy.fillna('').iterrows()}
+        tax_dict = {i: t.to_dict() for i, t in lineages.fillna('').iterrows()}
 
         # create condensed assignment hashes by qseqid
         msg = 'condensing group tax_ids to size {}'.format(args.max_group_size)
@@ -506,7 +506,7 @@ def action(args):
             threshold_assignments=args.threshold_assignments)
 
         aligns = aligns.join(
-            taxonomy[['rank']], on='condensed_id', rsuffix='_condensed')
+            lineages[['rank']], on='condensed_id', rsuffix='_condensed')
 
         aligns = aligns.rename(
             columns={'rank_condensed': 'condensed_rank'})
@@ -525,14 +525,14 @@ def action(args):
         aligns = aligns.apply(assign, tax_dict)
 
         # Foreach ref rank:
-        # - merge with taxonomy, extract rank_id, rank_name
+        # - merge with lineages, extract rank_id, rank_name
         for rank in args.include_ref_rank:
             aligns[rank + '_id'] = aligns.merge(
-                taxonomy, left_on='tax_id',
+                lineages, left_on='tax_id',
                 right_index=True,
                 how='left')[rank].fillna(0)
             aligns[rank + '_name'] = aligns.merge(
-                taxonomy,
+                lineages,
                 left_on=rank + '_id',
                 right_index=True,
                 how='left')['tax_name_y']
@@ -754,7 +754,7 @@ def build_parser():
         help=('alignment file with query and '
               'subject sequence hits and optional header'))
     parser.add_argument(
-        '--taxonomy',
+        '--lineages',
         metavar='csv',
         required=True,
         help='Table defining taxonomic lineages for each tax_id')
@@ -917,7 +917,7 @@ def calculate_pct_references(df, pct_reference):
     return df
 
 
-def compound_assignment(assignments, taxonomy):
+def compound_assignment(assignments, lineages):
     """
     Create taxonomic names based on 'assignmnets', which are a set of
     two-tuples: {(tax_id, is_starred), ...} where each tax_id is a key
@@ -925,24 +925,24 @@ def compound_assignment(assignments, taxonomy):
     least one reference sequence had a parirwise alignment identity
     score meeting some thresholed. 'taxdict' is a dictionary keyed by
     tax_id and returning a dict of taxonomic data corresponding to a
-    row from the taxonomy file. If 'include_stars' is False, ignore
+    row from the lineages file. If 'include_stars' is False, ignore
     the second element of each tuple in 'assignments' and do not
     include asterisks in the output names.
     assignments = [(tax_id, is_starred),...]
-    taxonomy = {taxid:taxonomy}
-    Functionality: see format_taxonomy
+    lineages = {taxid:lineages}
+    Functionality: see format_lineages
     """
-    if not taxonomy:
-        raise TypeError('taxonomy must not be empty or NoneType')
+    if not lineages:
+        raise TypeError('lineages must not be empty or NoneType')
 
-    assignments = ((taxonomy[i]['tax_name'], a) for i, a in assignments)
+    assignments = ((lineages[i]['tax_name'], a) for i, a in assignments)
     assignments = zip(*assignments)
 
-    return format_taxonomy(*assignments, asterisk='*')
+    return format_lineages(*assignments, asterisk='*')
 
 
 def condense(assignments,
-             taxonomy,
+             lineages,
              ranks,
              floor_rank=None,
              ceiling_rank=None,
@@ -950,7 +950,7 @@ def condense(assignments,
              rank_thresholds={}):
     """
     assignments = [tax_ids...]
-    taxonomy = {taxid:taxonomy}
+    lineages = {taxid:lineages}
 
     Functionality: Group items into taxonomic groups given max rank sizes.
     """
@@ -958,8 +958,8 @@ def condense(assignments,
     floor_rank = floor_rank or ranks[-1]
     ceiling_rank = ceiling_rank or ranks[0]
 
-    if not taxonomy:
-        raise TypeError('taxonomy must not be empty or NoneType')
+    if not lineages:
+        raise TypeError('lineages must not be empty or NoneType')
 
     if floor_rank not in ranks:
         msg = '{} not in ranks: {}'.format(floor_rank, ranks)
@@ -976,16 +976,16 @@ def condense(assignments,
 
     # set rank to ceiling
     try:
-        assignments = {a: taxonomy[a][ceiling_rank] for a in assignments}
+        assignments = {a: lineages[a][ceiling_rank] for a in assignments}
     except KeyError:
-        error = ('Assignment id not found in taxonomy.')
+        error = ('Assignment id not found in lineages.')
         raise KeyError(error)
 
     def walk_taxtree(groups, ceiling_rank=ceiling_rank, max_size=max_size):
         new_groups = {}
 
         for a, r in groups.items():
-            new_groups[a] = taxonomy[a][ceiling_rank] or r
+            new_groups[a] = lineages[a][ceiling_rank] or r
 
         num_groups = len(set(new_groups.values()))
 
@@ -1057,7 +1057,7 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     # get root out (taxid: 1) and set it as the default correction value
 
     # set index nan (no blast result) to the default value
-    default = copy_numbers.get_value('1', 'median')
+    default = copy_numbers.at['1', 'median']
     default_entry = pd.DataFrame(default, index=[None], columns=['median'])
     copy_numbers = copy_numbers.append(default_entry)
 
@@ -1095,9 +1095,9 @@ def find_tax_id(lineage, valids, ranks):
     return value if value not in valids[key].unique() else None
 
 
-def format_taxonomy(names, selectors, asterisk='*'):
+def format_lineages(names, selectors, asterisk='*'):
     """
-    Create a friendly formatted string of taxonomy names. Names will
+    Create a friendly formatted string of lineages names. Names will
     have an asterisk value appended *only* if the cooresponding
     element in the selectors evaluates to True.
     """
@@ -1302,9 +1302,11 @@ def read_seqinfo(path, ids):
     return pd.Series(data=seq_info, name='tax_id')
 
 
-def read_taxonomy(path, ids):
+def read_lineages(path, ids):
     """
-    Iterates through taxonomy file only including necessary lineages
+    Iterates through lineages file only including necessary lineages
+
+    FIXME: tax_ids after first pass can disappear if tax_id rank not in columns
     """
     with opener(path) as taxfile:
         taxcsv = csv.reader(taxfile)

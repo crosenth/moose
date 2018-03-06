@@ -12,8 +12,6 @@ from classifier import classify
 
 from tests import TestBase, datadir as datadir
 
-log = logging.getLogger(__name__)
-
 
 class TestClassify(TestBase):
 
@@ -54,10 +52,10 @@ class TestClassify(TestBase):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -94,10 +92,10 @@ class TestClassify(TestBase):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -136,10 +134,10 @@ class TestClassify(TestBase):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -176,10 +174,10 @@ class TestClassify(TestBase):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -219,10 +217,10 @@ class TestClassify(TestBase):
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -259,10 +257,10 @@ class TestClassify(TestBase):
             '--seq-info', seq_info,
             '--details-out', details_out,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -294,10 +292,10 @@ class TestClassify(TestBase):
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -334,10 +332,10 @@ class TestClassify(TestBase):
             '--weights', weights,
             '--details-out', details_out,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -373,10 +371,10 @@ class TestClassify(TestBase):
             '--seq-info', seq_info,
             '--specimen-map', specimen_map,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -412,10 +410,10 @@ class TestClassify(TestBase):
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -454,10 +452,10 @@ class TestClassify(TestBase):
             '--specimen', 'specimen',
             '--weights', weights,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -493,10 +491,10 @@ class TestClassify(TestBase):
             '--hits-below-threshold',
             '--details-out', details_out,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -528,10 +526,10 @@ class TestClassify(TestBase):
             '--best-n-hits', 3,
             '--details-out', details_out,
             '--out', classify_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
@@ -577,10 +575,10 @@ class TestClassify(TestBase):
                 '--min-pident', '99',
                 '--out', classify_out,
                 '--details-out', details_out,
-                '--taxonomy', taxonomy,
+                '--lineages', taxonomy,
                 blast]
 
-            log.info(self.log_info.format(' '.join(map(str, args))))
+            logging.info(self.log_info.format(' '.join(map(str, args))))
 
             self.main(args)
 
@@ -616,10 +614,10 @@ class TestClassify(TestBase):
             '--min-qcovs', '99',
             '--out', classify_out,
             '--details-out', details_out,
-            '--taxonomy', taxonomy,
+            '--lineages', taxonomy,
             blast]
 
-        log.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
         self.main(args)
 
