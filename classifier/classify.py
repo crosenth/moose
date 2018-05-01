@@ -260,6 +260,16 @@ ALIGNMENT_CONVERT = {
     'saccver': 'sseqid'
 }
 
+OUTPUT_COLS = [
+    'specimen', 'assignment_id', 'assignment',
+    'max_percent', 'min_percent', 'min_threshold',
+    'best_rank', 'reads', 'clusters', 'pct_reads']
+
+DETAILS_COLS = [
+    'specimen', 'assignment_id', 'tax_name', 'rank', 'assignment_tax_name',
+    'assignment_rank', 'pident', 'tax_id', ASSIGNMENT_TAX_ID,
+    'condensed_id', 'qseqid', 'sseqid', 'starred', 'assignment_threshold']
+
 
 def setup_logging(namespace):
     """
@@ -281,7 +291,7 @@ def setup_logging(namespace):
 def main(argv=sys.argv[1:]):
     namespace = build_parser().parse_args(args=argv)
     setup_logging(namespace)
-    action(namespace)
+    return action(namespace)
 
 
 def get_compression(io):
@@ -295,6 +305,10 @@ def get_compression(io):
 
 
 def action(args):
+    import warnings
+    warnings.filterwarnings('error')
+    output_cols = list(OUTPUT_COLS)
+    details_cols = list(DETAILS_COLS)
     logging.info('loading alignments ' + args.alignments)
     if args.blast6in:
         aligns = pd.read_table(
@@ -314,20 +328,12 @@ def action(args):
             dtype=ALIGNMENT_DTYPES,
             names=names)
 
-    if aligns.empty:
-        logging.info('blast results empty, exiting.')
-        return
-
-    if any([args.min_qcovs, args.max_pident, args.min_pident]):
-        logging.info('filtering results by pident and qcovs')
-        aligns = raw_filtering(
-            aligns, args.min_qcovs, args.max_pident, args.min_pident)
+    # TODO: combine specimen_map and weights inputs
 
     # specimen grouping
     if args.specimen_map:
         '''
         qseqids not present in specimen_map are ignored throughout script
-        qseqids not present in alignments are considered [no blast hits]
         '''
         spec_map = pd.read_csv(
             args.specimen_map,
@@ -346,11 +352,37 @@ def action(args):
         # each qseqid is its own specimen
         aligns['specimen'] = aligns['qseqid']  # by qseqid
 
-    # get a set of qseqids for identifying [no blast hits] after filtering
-    qseqids = aligns[['specimen', 'qseqid']].drop_duplicates()
+    if args.weights:
+        if len(next(opener(args.weights)).split(',')) == 3:
+            weights_file = pd.read_csv(
+                args.weights,
+                names=['specimen', 'qseqid', 'weight'],
+                header=None,
+                dtype=dict(qseqid=str, weight=float, specimen=str))
+        else:
+            weights_file = pd.read_csv(
+                args.weights,
+                names=['qseqid', 'weight'],
+                header=None,
+                dtype=dict(qseqid=str, weight=float))
+        weights_file = weights_file.drop_duplicates()
+        aligns = aligns.merge(weights_file, how='left')
+        # enforce weight dtype as float and unlisted qseq's to weight of 1.0
+        aligns['weight'] = aligns['weight'].fillna(1.0).astype(float)
+    else:
+        aligns['weight'] = 1.0
 
-    msg = 'successfully loaded {} alignments from {} query sequences'
-    logging.info(msg.format(len(aligns), len(qseqids)))
+    if aligns.empty:
+        no_blast_results(aligns, args.out, args.details_out)
+        return
+
+    # get a set of qseqids for identifying [no blast hits] after filtering
+    qseqids = aligns[['specimen', 'qseqid', 'weight']].drop_duplicates()
+
+    if any([args.min_qcovs, args.max_pident, args.min_pident]):
+        logging.info('filtering results by pident and qcovs')
+        aligns = raw_filtering(
+            aligns, args.min_qcovs, args.max_pident, args.min_pident)
 
     '''
     Remove query sequences with no alignment information.
@@ -419,7 +451,7 @@ def action(args):
         # overwrite with user defined tax_id threshold
         rank_thresholds = rank_thresholds.groupby(level=0, sort=False).last()
 
-    #  ranks = [r for r in ranks if r in rank_thresholds.columns]
+    ranks = [r for r in ranks if r in rank_thresholds.columns]
 
     rank_thresholds_cols = ['{}_threshold'.format(c) if c in ranks else c
                             for c in rank_thresholds.columns]
@@ -428,9 +460,6 @@ def action(args):
     # joining rank thresholds file
     aligns = join_thresholds(
         aligns, rank_thresholds, ranks[::-1])
-
-    # save the aligns.columns in case groupby drops all columns
-    aligns_columns = aligns.columns
 
     # assign assignment tax ids based on pident and thresholds
     logging.info('selecting best alignments for classification')
@@ -444,38 +473,25 @@ def action(args):
         """
         Store all the hits to append to aligns details later
         """
-        hits_below_threshold = aligns[
-            ~aligns.index.isin(valid_hits.index)]
+        hits_below_threshold = aligns[~aligns.index.isin(valid_hits.index)]
 
     aligns = valid_hits
 
-    if aligns.empty:
-        logging.info('all alignment results filtered, '
-                     'returning [no blast results]')
-        assignment_columns = ['assignment_rank', 'assignment_threshold',
-                              'assignment_tax_name', 'condensed_id', 'starred',
-                              'assignment', 'assignment_hash',
-                              'condensed_rank', ASSIGNMENT_TAX_ID]
-        assignment_columns += aligns_columns.tolist()
-        aligns = pd.DataFrame(columns=assignment_columns)
-    else:
+    if not aligns.empty:
         aligns_post_len = len(aligns)
-        msg = '{} alignments selected for classification'
+        msg = '{} alignments selected for assignment'
         logging.info(msg.format(aligns_post_len))
 
         if 'mismatch' in aligns.columns and args.best_n_hits:
             aligns_len = len(aligns)
-
             # Filter hits for each query
             aligns = aligns.groupby(
                 by=['specimen', 'qseqid'],
                 group_keys=False).apply(filter_mismatches, args.best_n_hits)
-
             aligns_post_len = len(aligns)
             logging.info('{} ({:.0%}) hits remain after filtering '
                          'on mismatches (--best_n_hits)'.format(
-                             aligns_post_len,
-                             aligns_post_len / aligns_len))
+                             aligns_post_len, aligns_post_len / aligns_len))
 
         # drop unneeded tax and threshold columns to free memory
         # TODO: see if this is necessary anymore since latest Pandas release
@@ -493,7 +509,7 @@ def action(args):
             columns={'tax_name_assignment': 'assignment_tax_name',
                      'rank_assignment': 'assignment_rank'})
 
-        tax_dict = {i: t.to_dict() for i, t in lineages.fillna('').iterrows()}
+        tax_dict = lineages.fillna('').to_dict(orient='index')
 
         # create condensed assignment hashes by qseqid
         msg = 'condensing group tax_ids to size {}'.format(args.max_group_size)
@@ -510,8 +526,7 @@ def action(args):
         aligns = aligns.join(
             lineages[['rank']], on='condensed_id', rsuffix='_condensed')
 
-        aligns = aligns.rename(
-            columns={'rank_condensed': 'condensed_rank'})
+        aligns = aligns.rename(columns={'rank_condensed': 'condensed_rank'})
 
         # star condensed ids if one hit meets star threshold
         by = ['specimen', 'assignment_hash', 'condensed_id']
@@ -525,6 +540,9 @@ def action(args):
         aligns = aligns.groupby(
             by=['specimen', 'assignment_hash'], sort=False, group_keys=False)
         aligns = aligns.apply(assign, tax_dict)
+
+        # must set this as str to handle [no blast result]s later on
+        aligns['starred'] = aligns['starred'].astype(str)
 
         # Foreach ref rank:
         # - merge with lineages, extract rank_id, rank_name
@@ -546,6 +564,11 @@ def action(args):
     no_hits = aligns['sseqid'].isnull()
     aligns.loc[no_hits, 'assignment'] = '[no blast result]'
     aligns.loc[no_hits, 'assignment_hash'] = 0
+    aligns.loc[no_hits, 'assignment_tax_name'] = None
+    aligns.loc[no_hits, 'assignment_rank'] = None
+    aligns.loc[no_hits, 'condensed_id'] = None
+    aligns.loc[no_hits, 'condensed_rank'] = None
+    aligns.loc[no_hits, 'starred'] = None
 
     # concludes our alignment details, on to output summary
     logging.info('summarizing output')
@@ -565,21 +588,9 @@ def action(args):
 
     # qseqid cluster stats
     weights = aligns[
-        ['qseqid', 'specimen', 'assignment_hash', 'assignment_threshold']]
+        ['qseqid', 'specimen', 'assignment_hash',
+         'assignment_threshold', 'weight']]
     weights = weights.drop_duplicates().set_index('qseqid')
-
-    if args.weights:
-        weights_file = pd.read_csv(
-            args.weights,
-            names=['qseqid', 'weight'],
-            header=None,
-            dtype=dict(qseqid=str, weight=float),
-            index_col='qseqid')
-        weights = weights.join(weights_file)
-        # enforce weight dtype as float and unlisted qseq's to weight of 1.0
-        weights['weight'] = weights['weight'].fillna(1.0).astype(float)
-    else:
-        weights['weight'] = 1.0
 
     cluster_stats = weights[['specimen', 'assignment_hash', 'weight']]
     cluster_stats = cluster_stats.reset_index().drop_duplicates()
@@ -603,6 +614,7 @@ def action(args):
         # create pct_corrected column
         output['pct_corrected'] = specimen_stats['corrected'].apply(pct)
         output['pct_corrected'] = output['pct_corrected'].map(round_up)
+        output_cols.extend(['corrected', 'pct_corrected'])
 
     # round reads for output
     output['reads'] = output['reads'].apply(round).astype(int)
@@ -648,21 +660,16 @@ def action(args):
             largest = largest.drop('assignment_threshold', axis=1)
             aligns = aligns.merge(largest)
 
-        details_columns = ['specimen', 'assignment_id', 'tax_name', 'rank',
-                           'assignment_tax_name', 'assignment_rank', 'pident',
-                           'tax_id', ASSIGNMENT_TAX_ID, 'condensed_id',
-                           'qseqid', 'sseqid', 'starred',
-                           'assignment_threshold']
         ref_rank_columns = [rank + '_id' for rank in args.include_ref_rank]
         ref_rank_columns += [rank + '_name' for rank in args.include_ref_rank]
-        details_columns += ref_rank_columns
+        details_cols += ref_rank_columns
 
         if args.hits_below_threshold:
             """
             append assignment_thresholds and append to --details-out
             """
             deets_cols = hits_below_threshold.columns
-            deets_cols &= set(details_columns)
+            deets_cols &= set(details_cols)
             hits_below_threshold = hits_below_threshold[list(deets_cols)]
             threshold_cols = ['specimen', 'qseqid', 'assignment_threshold']
             assignment_thresholds = aligns[threshold_cols]
@@ -672,13 +679,15 @@ def action(args):
             aligns = pd.concat(
                 [aligns, hits_below_threshold], ignore_index=True)
 
-        # sort details for consistency and ease of viewing
-        aligns = aligns.sort_values(by=details_columns)
+        """sort details for consistency and ease of viewing.
+        [no blast results] may have irregular aligns.columns
+        """
+        aligns = aligns.sort_values(by=details_cols)
 
         aligns.to_csv(
             args.details_out,
             compression=get_compression(args.details_out),
-            columns=details_columns,
+            columns=details_cols,
             header=True,
             index=False,
             float_format='%.2f')
@@ -691,6 +700,7 @@ def action(args):
         args.out,
         index=True,
         float_format='%.2f',
+        columns=[c for c in output.columns if c in output_cols],
         compression=get_compression(args.out))
 
 
@@ -1177,6 +1187,31 @@ def load_rank_thresholds(path=os.path.join(
     rank_thresholds = rank_thresholds.set_index('tax_id')
     drop = [col for col in rank_thresholds.columns if col not in usecols]
     return rank_thresholds.drop(drop, axis=1)
+
+
+def no_blast_results(aligns, out, dout):
+    # qseqids['assignment'] = '[no blast result]'
+    # qseqids['assignment_id'] = '0'
+    # for specimen, df in qseqids.groupby(by='specimen', sort=False):
+    #     qseqids.loc[df.index, 'reads'] = df['weight'].sum()
+    #     qseqids.loc[df.index, 'clusters'] = len(df)
+    # qseqids['pct_reads'] = 100.
+    # qseqids['reads'] = qseqids['reads'].astype(int)
+    output = pd.DataFrame(columns=OUTPUT_COLS, data=aligns)
+    output.drop_duplicates().to_csv(
+        out,
+        index=False,
+        float_format='%.2f',
+        compression=get_compression(out))
+    if dout:
+        details_out = pd.DataFrame(columns=DETAILS_COLS, data=aligns)
+        details_out.to_csv(
+            dout,
+            compression=get_compression(dout),
+            columns=DETAILS_COLS,
+            header=True,
+            index=False,
+            float_format='%.2f')
 
 
 def round_up(x):

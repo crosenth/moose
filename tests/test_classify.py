@@ -64,7 +64,7 @@ class TestClassify(TestBase):
 
     def test16(self):
         """
-        test no blast result
+        test [no blast result] for missing sequences in specimen_map
         """
 
         this_test = sys._getframe().f_code.co_name
@@ -83,6 +83,7 @@ class TestClassify(TestBase):
 
         classify_ref = os.path.join(
             thisdatadir, this_test, 'classifications.csv.bz2')
+        print(classify_ref)
         details_ref = os.path.join(
             thisdatadir, this_test, 'details.csv.bz2')
 
@@ -271,15 +272,19 @@ class TestClassify(TestBase):
         """
         Test empty blast_results file
         """
-
         thisdatadir = self.thisdatadir
 
         this_test = sys._getframe().f_code.co_name
 
         outdir = self.mkoutdir()
 
-        classify_out = os.path.join(outdir, 'classifications.csv')
-        details_out = os.path.join(outdir, 'details.csv')
+        classify_out = os.path.join(outdir, 'classifications.csv.bz2')
+        details_out = os.path.join(outdir, 'details.csv.bz2')
+
+        classify_ref = os.path.join(
+            thisdatadir, this_test, 'classifications.csv.bz2')
+        details_ref = os.path.join(
+            thisdatadir, this_test, 'details.csv.bz2')
 
         # create blank blast.csv file
         blast = os.path.join(outdir, 'blast.csv')
@@ -299,8 +304,8 @@ class TestClassify(TestBase):
 
         self.main(args)
 
-        self.assertFalse(os.path.isfile(classify_out))
-        self.assertFalse(os.path.isfile(details_out))
+        self.assertTrue(filecmp.cmp(classify_ref, classify_out))
+        self.assertTrue(filecmp.cmp(details_ref, details_out))
 
     def test09(self):
         """
@@ -312,6 +317,7 @@ class TestClassify(TestBase):
         this_test = sys._getframe().f_code.co_name
 
         blast = os.path.join(thisdatadir, this_test, 'blast.csv.bz2')
+        specimen_map = os.path.join(thisdatadir, this_test, 'map.csv.bz2')
         taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
         seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
         weights = os.path.join(thisdatadir, 'weights.csv.bz2')
@@ -328,6 +334,7 @@ class TestClassify(TestBase):
 
         args = [
             '--seq-info', seq_info,
+            '--specimen-map', specimen_map,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--weights', weights,
             '--details-out', details_out,
@@ -546,44 +553,44 @@ class TestClassify(TestBase):
         self.assertTrue(len(names) == 2)
 
     def test17(self):
-            """
-            min-pident 99, max-pident 100
-            """
+        """
+        min-pident 99, max-pident 100
+        """
 
-            this_test = sys._getframe().f_code.co_name
+        this_test = sys._getframe().f_code.co_name
 
-            thisdatadir = self.thisdatadir
+        thisdatadir = self.thisdatadir
 
-            taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
-            seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
-            blast = os.path.join(thisdatadir, 'blast.csv.bz2')
+        taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
+        seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
+        blast = os.path.join(thisdatadir, 'blast.csv.bz2')
 
-            outdir = self.mkoutdir()
+        outdir = self.mkoutdir()
 
-            classify_out = os.path.join(outdir, 'classifications.csv.bz2')
-            details_out = os.path.join(outdir, 'details.csv.bz2')
+        classify_out = os.path.join(outdir, 'classifications.csv.bz2')
+        details_out = os.path.join(outdir, 'details.csv.bz2')
 
-            classify_ref = os.path.join(
-                thisdatadir, this_test, 'classifications.csv.bz2')
-            details_ref = os.path.join(
-                thisdatadir, this_test, 'details.csv.bz2')
+        classify_ref = os.path.join(
+            thisdatadir, this_test, 'classifications.csv.bz2')
+        details_ref = os.path.join(
+            thisdatadir, this_test, 'details.csv.bz2')
 
-            args = [
-                '--seq-info', seq_info,
-                '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-                '--max-pident', '100',
-                '--min-pident', '99',
-                '--out', classify_out,
-                '--details-out', details_out,
-                '--lineages', taxonomy,
-                blast]
+        args = [
+            '--seq-info', seq_info,
+            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
+            '--max-pident', '100',
+            '--min-pident', '99',
+            '--out', classify_out,
+            '--details-out', details_out,
+            '--lineages', taxonomy,
+            blast]
 
-            logging.info(self.log_info.format(' '.join(map(str, args))))
+        logging.info(self.log_info.format(' '.join(map(str, args))))
 
-            self.main(args)
+        self.main(args)
 
-            self.assertTrue(filecmp.cmp(classify_ref, classify_out))
-            self.assertTrue(filecmp.cmp(details_ref, details_out))
+        self.assertTrue(filecmp.cmp(classify_ref, classify_out))
+        self.assertTrue(filecmp.cmp(details_ref, details_out))
 
     def test18(self):
         """
