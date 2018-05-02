@@ -305,8 +305,6 @@ def get_compression(io):
 
 
 def action(args):
-    import warnings
-    warnings.filterwarnings('error')
     output_cols = list(OUTPUT_COLS)
     details_cols = list(DETAILS_COLS)
     logging.info('loading alignments ' + args.alignments)
@@ -373,7 +371,21 @@ def action(args):
         aligns['weight'] = 1.0
 
     if aligns.empty:
-        no_blast_results(aligns, args.out, args.details_out)
+        output = pd.DataFrame(columns=output_cols, data=aligns)
+        output.drop_duplicates().to_csv(
+            args.out,
+            index=False,
+            float_format='%.2f',
+            compression=get_compression(args.out))
+        if args.details_out:
+            details_out = pd.DataFrame(columns=details_cols, data=aligns)
+            details_out.to_csv(
+                args.details_out,
+                compression=get_compression(args.details_out),
+                columns=details_cols,
+                header=True,
+                index=False,
+                float_format='%.2f')
         return
 
     # get a set of qseqids for identifying [no blast hits] after filtering
@@ -1187,31 +1199,6 @@ def load_rank_thresholds(path=os.path.join(
     rank_thresholds = rank_thresholds.set_index('tax_id')
     drop = [col for col in rank_thresholds.columns if col not in usecols]
     return rank_thresholds.drop(drop, axis=1)
-
-
-def no_blast_results(aligns, out, dout):
-    # qseqids['assignment'] = '[no blast result]'
-    # qseqids['assignment_id'] = '0'
-    # for specimen, df in qseqids.groupby(by='specimen', sort=False):
-    #     qseqids.loc[df.index, 'reads'] = df['weight'].sum()
-    #     qseqids.loc[df.index, 'clusters'] = len(df)
-    # qseqids['pct_reads'] = 100.
-    # qseqids['reads'] = qseqids['reads'].astype(int)
-    output = pd.DataFrame(columns=OUTPUT_COLS, data=aligns)
-    output.drop_duplicates().to_csv(
-        out,
-        index=False,
-        float_format='%.2f',
-        compression=get_compression(out))
-    if dout:
-        details_out = pd.DataFrame(columns=DETAILS_COLS, data=aligns)
-        details_out.to_csv(
-            dout,
-            compression=get_compression(dout),
-            columns=DETAILS_COLS,
-            header=True,
-            index=False,
-            float_format='%.2f')
 
 
 def round_up(x):
