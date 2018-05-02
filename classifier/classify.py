@@ -371,21 +371,16 @@ def action(args):
         aligns['weight'] = 1.0
 
     if aligns.empty:
-        output = pd.DataFrame(columns=output_cols, data=aligns)
-        output.drop_duplicates().to_csv(
-            args.out,
-            index=False,
-            float_format='%.2f',
-            compression=get_compression(args.out))
+        '''
+        Return just the output headers if no qseqid data exists
+        '''
+        pd.DataFrame(columns=output_cols).to_csv(
+            args.out, index=False, compression=get_compression(args.out))
         if args.details_out:
-            details_out = pd.DataFrame(columns=details_cols, data=aligns)
-            details_out.to_csv(
+            pd.DataFrame(columns=details_cols).to_csv(
                 args.details_out,
                 compression=get_compression(args.details_out),
-                columns=details_cols,
-                header=True,
-                index=False,
-                float_format='%.2f')
+                index=False)
         return
 
     # get a set of qseqids for identifying [no blast hits] after filtering
