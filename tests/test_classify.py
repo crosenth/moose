@@ -112,11 +112,10 @@ class TestClassify(TestBase):
 
         thisdatadir = self.thisdatadir
 
-        weights = os.path.join(thisdatadir, 'weights.csv.bz2')
         taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
         seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
         blast = os.path.join(thisdatadir, 'blast.csv.bz2')
-        specimen_map = os.path.join(thisdatadir, 'map_single.csv.bz2')
+        specimen_map = os.path.join(thisdatadir, this_test, 'map_single.csv.bz2')
 
         outdir = self.mkoutdir()
 
@@ -131,7 +130,6 @@ class TestClassify(TestBase):
         args = [
             '--specimen-map', specimen_map,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--weights', weights,
             '--out', classify_out,
             '--details-out', details_out,
             '--seq-info', seq_info,
@@ -194,8 +192,7 @@ class TestClassify(TestBase):
 
         thisdatadir = self.thisdatadir
 
-        weights = os.path.join(thisdatadir, 'weights.csv.bz2')
-        specimen_map = os.path.join(thisdatadir, 'map.csv.bz2')
+        specimen_map = os.path.join(thisdatadir, this_test, 'map.csv.bz2')
         taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
         seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
         blast = os.path.join(thisdatadir, 'blast.csv.bz2')
@@ -213,7 +210,7 @@ class TestClassify(TestBase):
         args = [
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--specimen-map', specimen_map,
-            '--weights', weights,
+            # '--weights', weights,
             '--copy-numbers', self.copy_numbers,
             '--out', classify_out,
             '--details-out', details_out,
@@ -320,7 +317,6 @@ class TestClassify(TestBase):
         specimen_map = os.path.join(thisdatadir, this_test, 'map.csv.bz2')
         taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
         seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
-        weights = os.path.join(thisdatadir, 'weights.csv.bz2')
 
         outdir = self.mkoutdir()
 
@@ -336,7 +332,7 @@ class TestClassify(TestBase):
             '--seq-info', seq_info,
             '--specimen-map', specimen_map,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--weights', weights,
+            # '--weights', weights,
             '--details-out', details_out,
             '--out', classify_out,
             '--lineages', taxonomy,
@@ -456,8 +452,7 @@ class TestClassify(TestBase):
         args = [
             '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--specimen', 'specimen',
-            '--weights', weights,
+            '--specimen-map', weights,
             '--out', classify_out,
             '--lineages', taxonomy,
             blast]
