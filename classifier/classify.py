@@ -260,6 +260,16 @@ ALIGNMENT_CONVERT = {
     'saccver': 'sseqid'
 }
 
+OUTPUT_COLS = [
+    'specimen', 'assignment_id', 'assignment',
+    'max_percent', 'min_percent', 'min_threshold',
+    'best_rank', 'reads', 'clusters', 'pct_reads']
+
+DETAILS_COLS = [
+    'specimen', 'assignment_id', 'tax_name', 'rank', 'assignment_tax_name',
+    'assignment_rank', 'pident', 'tax_id', ASSIGNMENT_TAX_ID,
+    'condensed_id', 'qseqid', 'sseqid', 'starred', 'assignment_threshold']
+
 
 def setup_logging(namespace):
     """
@@ -281,7 +291,7 @@ def setup_logging(namespace):
 def main(argv=sys.argv[1:]):
     namespace = build_parser().parse_args(args=argv)
     setup_logging(namespace)
-    action(namespace)
+    return action(namespace)
 
 
 def get_compression(io):
@@ -295,6 +305,8 @@ def get_compression(io):
 
 
 def action(args):
+    output_cols = list(OUTPUT_COLS)
+    details_cols = list(DETAILS_COLS)
     logging.info('loading alignments ' + args.alignments)
     if args.blast6in:
         aligns = pd.read_table(
@@ -314,43 +326,48 @@ def action(args):
             dtype=ALIGNMENT_DTYPES,
             names=names)
 
+    # specimen grouping
+    if args.specimen_map:
+        spec_map = pd.read_csv(
+            args.specimen_map,
+            names=['specimen', 'qseqid', 'weight'],
+            usecols=['specimen', 'qseqid', 'weight'],
+            dtype={'qseqid': str, 'specimen': str, 'weight': float},
+            header=None)
+        spec_map = spec_map.drop_duplicates().set_index('qseqid')
+        aligns = aligns.join(spec_map, on='qseqid', how='outer')
+        aligns['weight'] = aligns['weight'].fillna(1.0)
+        imissing = aligns['specimen'].isna()
+        aligns.loc[imissing, 'specimen'] = aligns[imissing]['qseqid']
+    elif args.specimen:
+        # all sequences are of one specimen
+        aligns['specimen'] = args.specimen
+        aligns['weight'] = 1.
+    else:
+        # each qseqid is its own specimen
+        aligns['specimen'] = aligns['qseqid']  # by qseqid
+        aligns['weight'] = 1.
+
     if aligns.empty:
-        logging.info('blast results empty, exiting.')
+        '''
+        Return just the output headers if no data exists
+        '''
+        pd.DataFrame(columns=output_cols).to_csv(
+            args.out, index=False, compression=get_compression(args.out))
+        if args.details_out:
+            pd.DataFrame(columns=details_cols).to_csv(
+                args.details_out,
+                compression=get_compression(args.details_out),
+                index=False)
         return
+
+    # get a set of qseqids for identifying [no blast hits] after filtering
+    qseqids = aligns[['specimen', 'qseqid', 'weight']].drop_duplicates()
 
     if any([args.min_qcovs, args.max_pident, args.min_pident]):
         logging.info('filtering results by pident and qcovs')
         aligns = raw_filtering(
             aligns, args.min_qcovs, args.max_pident, args.min_pident)
-
-    # specimen grouping
-    if args.specimen_map:
-        '''
-        qseqids not present in specimen_map are ignored throughout script
-        qseqids not present in alignments are considered [no blast hits]
-        '''
-        spec_map = pd.read_csv(
-            args.specimen_map,
-            names=['qseqid', 'specimen'],
-            usecols=['qseqid', 'specimen'],
-            header=None,
-            dtype=str)
-        spec_map = spec_map.drop_duplicates()
-        spec_map = spec_map.set_index('qseqid')
-        aligns = aligns.join(spec_map, on='qseqid', how='right')
-        # TODO: Can we just get our [no blast hits] instead of diffing later?
-    elif args.specimen:
-        # all sequences are of one specimen
-        aligns['specimen'] = args.specimen
-    else:
-        # each qseqid is its own specimen
-        aligns['specimen'] = aligns['qseqid']  # by qseqid
-
-    # get a set of qseqids for identifying [no blast hits] after filtering
-    qseqids = aligns[['specimen', 'qseqid']].drop_duplicates()
-
-    msg = 'successfully loaded {} alignments from {} query sequences'
-    logging.info(msg.format(len(aligns), len(qseqids)))
 
     '''
     Remove query sequences with no alignment information.
@@ -432,9 +449,6 @@ def action(args):
     aligns = join_thresholds(
         aligns, rank_thresholds, ranks[::-1])
 
-    # save the aligns.columns in case groupby drops all columns
-    aligns_columns = aligns.columns
-
     # assign assignment tax ids based on pident and thresholds
     logging.info('selecting best alignments for classification')
     aligns_len = float(len(aligns))
@@ -447,38 +461,25 @@ def action(args):
         """
         Store all the hits to append to aligns details later
         """
-        hits_below_threshold = aligns[
-            ~aligns.index.isin(valid_hits.index)]
+        hits_below_threshold = aligns[~aligns.index.isin(valid_hits.index)]
 
     aligns = valid_hits
 
-    if aligns.empty:
-        logging.info('all alignment results filtered, '
-                     'returning [no blast results]')
-        assignment_columns = ['assignment_rank', 'assignment_threshold',
-                              'assignment_tax_name', 'condensed_id', 'starred',
-                              'assignment', 'assignment_hash',
-                              'condensed_rank', ASSIGNMENT_TAX_ID]
-        assignment_columns += aligns_columns.tolist()
-        aligns = pd.DataFrame(columns=assignment_columns)
-    else:
+    if not aligns.empty:
         aligns_post_len = len(aligns)
-        msg = '{} alignments selected for classification'
+        msg = '{} alignments selected for assignment'
         logging.info(msg.format(aligns_post_len))
 
         if 'mismatch' in aligns.columns and args.best_n_hits:
             aligns_len = len(aligns)
-
             # Filter hits for each query
             aligns = aligns.groupby(
                 by=['specimen', 'qseqid'],
                 group_keys=False).apply(filter_mismatches, args.best_n_hits)
-
             aligns_post_len = len(aligns)
             logging.info('{} ({:.0%}) hits remain after filtering '
                          'on mismatches (--best_n_hits)'.format(
-                             aligns_post_len,
-                             aligns_post_len / aligns_len))
+                             aligns_post_len, aligns_post_len / aligns_len))
 
         # drop unneeded tax and threshold columns to free memory
         # TODO: see if this is necessary anymore since latest Pandas release
@@ -496,7 +497,7 @@ def action(args):
             columns={'tax_name_assignment': 'assignment_tax_name',
                      'rank_assignment': 'assignment_rank'})
 
-        tax_dict = {i: t.to_dict() for i, t in lineages.fillna('').iterrows()}
+        tax_dict = lineages.fillna('').to_dict(orient='index')
 
         # create condensed assignment hashes by qseqid
         msg = 'condensing group tax_ids to size {}'.format(args.max_group_size)
@@ -513,8 +514,7 @@ def action(args):
         aligns = aligns.join(
             lineages[['rank']], on='condensed_id', rsuffix='_condensed')
 
-        aligns = aligns.rename(
-            columns={'rank_condensed': 'condensed_rank'})
+        aligns = aligns.rename(columns={'rank_condensed': 'condensed_rank'})
 
         # star condensed ids if one hit meets star threshold
         by = ['specimen', 'assignment_hash', 'condensed_id']
@@ -528,6 +528,9 @@ def action(args):
         aligns = aligns.groupby(
             by=['specimen', 'assignment_hash'], sort=False, group_keys=False)
         aligns = aligns.apply(assign, tax_dict)
+
+        # set this as str to handle na values for [no blast result]s
+        aligns['starred'] = aligns['starred'].astype(str)
 
         # Foreach ref rank:
         # - merge with lineages, extract rank_id, rank_name
@@ -549,6 +552,11 @@ def action(args):
     no_hits = aligns['sseqid'].isnull()
     aligns.loc[no_hits, 'assignment'] = '[no blast result]'
     aligns.loc[no_hits, 'assignment_hash'] = 0
+    aligns.loc[no_hits, 'assignment_tax_name'] = None
+    aligns.loc[no_hits, 'assignment_rank'] = None
+    aligns.loc[no_hits, 'condensed_id'] = None
+    aligns.loc[no_hits, 'condensed_rank'] = None
+    aligns.loc[no_hits, 'starred'] = None
 
     # concludes our alignment details, on to output summary
     logging.info('summarizing output')
@@ -568,21 +576,9 @@ def action(args):
 
     # qseqid cluster stats
     weights = aligns[
-        ['qseqid', 'specimen', 'assignment_hash', 'assignment_threshold']]
+        ['qseqid', 'specimen', 'assignment_hash',
+         'assignment_threshold', 'weight']]
     weights = weights.drop_duplicates().set_index('qseqid')
-
-    if args.weights:
-        weights_file = pd.read_csv(
-            args.weights,
-            names=['qseqid', 'weight'],
-            header=None,
-            dtype=dict(qseqid=str, weight=float),
-            index_col='qseqid')
-        weights = weights.join(weights_file)
-        # enforce weight dtype as float and unlisted qseq's to weight of 1.0
-        weights['weight'] = weights['weight'].fillna(1.0).astype(float)
-    else:
-        weights['weight'] = 1.0
 
     cluster_stats = weights[['specimen', 'assignment_hash', 'weight']]
     cluster_stats = cluster_stats.reset_index().drop_duplicates()
@@ -606,6 +602,7 @@ def action(args):
         # create pct_corrected column
         output['pct_corrected'] = specimen_stats['corrected'].apply(pct)
         output['pct_corrected'] = output['pct_corrected'].map(round_up)
+        output_cols.extend(['corrected', 'pct_corrected'])
 
     # round reads for output
     output['reads'] = output['reads'].apply(round).astype(int)
@@ -621,13 +618,8 @@ def action(args):
     output = output.sort_values(by=columns, ascending=False)
     output = output.reset_index(level='assignment_hash')
 
-    # Sort index (specimen) in preparation for groupby.
-    # Use stable sort (mergesort) to preserve sortings (1-4);
-    # default algorithm is not stable
-    output = output.sort_index(kind='mergesort')
-
-    # one last grouping on the sorted output plus assignment ids by specimen
-    output = output.groupby(level="specimen", sort=False).apply(assignment_id)
+    # one last groupby and sort on the assignment ids by specimen
+    output = output.groupby(level="specimen").apply(assignment_id)
 
     # output to details.csv.bz2
     if args.details_out:
@@ -651,21 +643,16 @@ def action(args):
             largest = largest.drop('assignment_threshold', axis=1)
             aligns = aligns.merge(largest)
 
-        details_columns = ['specimen', 'assignment_id', 'tax_name', 'rank',
-                           'assignment_tax_name', 'assignment_rank', 'pident',
-                           'tax_id', ASSIGNMENT_TAX_ID, 'condensed_id',
-                           'qseqid', 'sseqid', 'starred',
-                           'assignment_threshold']
         ref_rank_columns = [rank + '_id' for rank in args.include_ref_rank]
         ref_rank_columns += [rank + '_name' for rank in args.include_ref_rank]
-        details_columns += ref_rank_columns
+        details_cols += ref_rank_columns
 
         if args.hits_below_threshold:
             """
             append assignment_thresholds and append to --details-out
             """
             deets_cols = hits_below_threshold.columns
-            deets_cols &= set(details_columns)
+            deets_cols &= set(details_cols)
             hits_below_threshold = hits_below_threshold[list(deets_cols)]
             threshold_cols = ['specimen', 'qseqid', 'assignment_threshold']
             assignment_thresholds = aligns[threshold_cols]
@@ -675,13 +662,15 @@ def action(args):
             aligns = pd.concat(
                 [aligns, hits_below_threshold], ignore_index=True)
 
-        # sort details for consistency and ease of viewing
-        aligns = aligns.sort_values(by=details_columns)
+        """sort details for consistency and ease of viewing.
+        [no blast results] may have irregular aligns.columns
+        """
+        aligns = aligns.sort_values(by=details_cols)
 
         aligns.to_csv(
             args.details_out,
             compression=get_compression(args.details_out),
-            columns=details_columns,
+            columns=details_cols,
             header=True,
             index=False,
             float_format='%.2f')
@@ -694,6 +683,7 @@ def action(args):
         args.out,
         index=True,
         float_format='%.2f',
+        columns=[c for c in output.columns if c in output_cols],
         compression=get_compression(args.out))
 
 
@@ -760,12 +750,11 @@ def build_parser():
               'subject sequence hits and optional header'))
     parser.add_argument(
         '--lineages',
-        metavar='csv',
         required=True,
         help='Table defining taxonomic lineages for each tax_id')
     parser.add_argument(
         '--seq-info',
-        metavar='csv',
+        metavar='',
         help='map file seqname to tax_id')
 
     package_parser = parser.add_argument_group(
@@ -777,7 +766,7 @@ def build_parser():
         help='Print the version number and exit')
     package_parser.add_argument(
         '-l', '--log',
-        metavar='FILE',
+        metavar='',
         default=sys.stdout,
         help='Send logging to a file')
     package_parser.add_argument(
@@ -804,30 +793,31 @@ def build_parser():
         help=('header-less blast-like tab-separated input'))
     columns_parser.add_argument(
         '--columns', '-c',
+        metavar='',
         help=('specify columns for header-less comma-seperated values'))
 
     filters_parser = parser.add_argument_group('filtering options')
     # FIXME: remove this and create --max-mismatch argument instead
     filters_parser.add_argument(
         '--best-n-hits',
+        metavar='',
         type=int,
-        metavar='N',
         help=('For each qseqid sequence filter out all but the best N hits. '
               'Used in conjunction with alignment "mismatch" column.'))
     filters_parser.add_argument(
         '--max-pident',
+        metavar='',
         type=float,
-        metavar='PERCENT',
         help='maximum percent identity of aligments')
     filters_parser.add_argument(
         '--min-pident',
+        metavar='',
         type=float,
-        metavar='PERCENT',
         help=('minimum coverage of alignments'))
     filters_parser.add_argument(
         '--min-qcovs',
+        metavar='',
         type=float,
-        metavar='PERCENT',
         help=('minimum coverage of alignments'))
 
     # TODO: add subcommand --use-qcovs, default False, indicating that
@@ -837,15 +827,15 @@ def build_parser():
     assignment_parser = parser.add_argument_group('assignment options')
     assignment_parser.add_argument(
         '--starred',
+        metavar='',
         default=100.0,
-        metavar='PERCENT',
         type=float,
         help=('Names of organisms for which at least one reference '
               'sequence has pairwise identity with a query sequence of at '
               'least PERCENT will be marked with an asterisk [%(default)s]'))
     assignment_parser.add_argument(
         '--max-group-size',
-        metavar='N',
+        metavar='',
         default=3,
         type=int,
         help=('group multiple target-rank assignments that excede a '
@@ -861,24 +851,22 @@ def build_parser():
     opts_parser = parser.add_argument_group('other input options')
     opts_parser.add_argument(
         '--copy-numbers',
-        metavar='CSV',
+        metavar='',
         help=('Estimated 16s rRNA gene copy number for each tax_ids '
               '(CSV file with columns: tax_id, median)'))
     opts_parser.add_argument(
-        '--rank-thresholds', metavar='CSV', help='Columns [tax_id,ranks...]')
+        '--rank-thresholds',
+        metavar='',
+        help='Columns [tax_id,ranks...]')
     opts_group = opts_parser.add_mutually_exclusive_group(required=False)
     opts_group.add_argument(
-        '--specimen', metavar='LABEL', help='Single group label for reads')
+        '--specimen',
+        metavar='',
+        help='Single group label for reads')
     opts_group.add_argument(
         '--specimen-map',
-        metavar='CSV',
-        help='CSV file with no header mapping sequence to specimen group')
-    opts_parser.add_argument(
-        '-w', '--weights', metavar='CSV',
-        help=('Header-less csv file with columns \'seqname\', '
-              '\'count\' providing weights for each query sequence described  '
-              'in the alignment input (used, for example, to describe cluster '
-              'sizes for corresponding cluster OTUs).'))
+        metavar='',
+        help='Three column headerless csv file specimen,qseqid,weight')
 
     outs_parser = parser.add_argument_group('output options')
     outs_parser.add_argument(
@@ -887,7 +875,10 @@ def build_parser():
         help=('do not limit out_details to largest '
               'cluster per assignment [%(default)s]'))
     outs_parser.add_argument(
-        '--include-ref-rank', action='append', default=[],
+        '--include-ref-rank',
+        action='append',
+        default=[],
+        metavar='',
         help=('Given a single rank (species,genus,etc), '
               'include each reference '
               'sequence\'s tax_id as $\{rank\}_id and its taxonomic name as '
@@ -899,12 +890,12 @@ def build_parser():
               'will be included in the details'))
     outs_parser.add_argument(
         '--details-out',
-        metavar='FILE',
+        metavar='',
         help='Optional details of taxonomic assignments.')
     outs_parser.add_argument(
         '-o', '--out',
+        metavar='',
         default=sys.stdout,
-        metavar='FILE',
         help="classification results [default: stdout]")
     return parser
 
