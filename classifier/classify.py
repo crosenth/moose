@@ -660,7 +660,7 @@ def action(args):
             hits_below_threshold = hits_below_threshold.merge(
                 assignment_thresholds, how='left')
             aligns = pd.concat(
-                [aligns, hits_below_threshold], ignore_index=True)
+                [aligns, hits_below_threshold], ignore_index=True, sort=False)
 
         """sort details for consistency and ease of viewing.
         [no blast results] may have irregular aligns.columns
@@ -1055,7 +1055,7 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     # set index nan (no blast result) to the default value
     default = copy_numbers.at['1', 'median']
     default_entry = pd.DataFrame(default, index=[None], columns=['median'])
-    copy_numbers = copy_numbers.append(default_entry)
+    copy_numbers = copy_numbers.append(default_entry, sort=False)
 
     # do our copy number correction math
     corrections = aligns[
@@ -1144,7 +1144,7 @@ def join_thresholds(df, thresholds, ranks):
 
     for r in ranks:
         with_thresholds = with_thresholds.append(
-            df.join(thresholds, on=r, how='inner'))
+            df.join(thresholds, on=r, how='inner'), sort=False)
         no_threshold = df[~df.index.isin(with_thresholds.index)]
         df = no_threshold
 
@@ -1212,7 +1212,7 @@ def select_valid_hits(df, ranks):
             remaining_ranks = ranks[ranks.index(r):]
             found_ids = valid[na_ids].apply(
                 find_tax_id, args=(have_ids, remaining_ranks), axis=1)
-            tax_ids = have_ids[r].append(found_ids)
+            tax_ids = have_ids[r].append(found_ids, sort=False)
 
         valid[ASSIGNMENT_TAX_ID] = tax_ids
         valid['assignment_threshold'] = thresholds
