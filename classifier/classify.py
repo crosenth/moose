@@ -419,7 +419,10 @@ def action(args):
         # overwrite with user defined tax_id threshold
         rank_thresholds = rank_thresholds.groupby(level=0, sort=False).last()
 
-    #  ranks = [r for r in ranks if r in rank_thresholds.columns]
+    # remove ranks not in thresholds
+    ranks = [r for r in ranks if r in rank_thresholds.columns]
+
+    # TODO: remove ranks with same threshold as lower/better rank
 
     rank_thresholds_cols = ['{}_threshold'.format(c) if c in ranks else c
                             for c in rank_thresholds.columns]
