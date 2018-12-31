@@ -12,11 +12,6 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
-
-# TODO: generate usage from sphinx - can run arbitrary code from
-# within sphinx to generate a file containing help text, then include
-# that in compiled docs
-
 """Classify sequences by grouping alignment output by matching taxonomic names
 
 Optional grouping by specimen and query sequences
@@ -210,6 +205,7 @@ TODO: generate rank thresholds based on lineages input
 """
 import argparse
 import bz2
+import classifier.lineages
 import csv
 import gzip
 import itertools
@@ -221,6 +217,7 @@ import operator
 import os
 import numpy
 import sys
+import tarfile
 
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
 
@@ -409,9 +406,25 @@ def action(args):
     FIXME: Instead of using column order to judge rank order just
     specify the rank order in here somewhere.
     '''
-    logging.info('reading ' + args.lineages)
-    lineages = read_lineages(args.lineages, set(aligns['tax_id'].tolist()))
+    if args.lineages:
+        logging.info('reading ' + args.lineages)
+        lineages = read_lineages(args.lineages, set(aligns['tax_id'].tolist()))
+    else:
+        tis = set(aligns['tax_id'].tolist())
+        tree = build_lineages(tis, args.taxdump, args.tax_url)
+        if args.no_rank_suffix:
+            tree.expand_ranks(args.no_rank_suffix)
+        else:  # we will want root (no rank) no matter what
+            tree.include_root()
+        tree.order_ranks()
+        lineages = pd.DataFrame(
+            data=tree.root.get_lineages(tree.ranks),
+            columns=['tax_id', 'tax_name', 'rank'] + tree.ranks)
+
     lineages = lineages.set_index('tax_id').dropna(axis='columns', how='all')
+
+    if args.lineages_out:
+        lineages.to_csv(args.lineages_out)
 
     ranks = lineages.columns.tolist()
     ranks = ranks[ranks.index('root'):]
@@ -741,6 +754,17 @@ def test():
     return build_parser()
 
 
+def build_lineages(tax_ids, tar, url):
+    if tar is None or not os.path.isfile(tar):
+        tar = classifier.lineages.get_taxdmp(url)
+    with tarfile.open(name=tar, mode='r:gz') as taxdmp:
+        logging.info('building lineages from NCBI')
+        nodes, names = classifier.lineages.get_data(taxdmp)
+        tree = classifier.lineages.Tree(nodes, names)
+    tree.root.prune(tax_ids)
+    return tree
+
+
 def build_parser():
     parser = argparse.ArgumentParser()
     # required inputs
@@ -748,10 +772,6 @@ def build_parser():
         'alignments',
         help=('alignment file with query and '
               'subject sequence hits and optional header'))
-    parser.add_argument(
-        '--lineages',
-        required=True,
-        help='Table defining taxonomic lineages for each tax_id')
     parser.add_argument(
         '--seq-info',
         metavar='',
@@ -868,6 +888,23 @@ def build_parser():
         metavar='',
         help='Three column headerless csv file specimen,qseqid,weight')
 
+    # lineage taxonomy source data
+    lineage_parser = parser.add_argument_group('lineage and ncbi source options')
+    lineage_parser.add_argument(
+        '--lineages',
+        help='Table defining taxonomic lineages for each taxonomy id')
+    lineage_parser.add_argument(
+        '--taxdump',
+        default='taxdump.tar.gz',
+        help='lineages source data [%(default)s]')
+    lineage_parser.add_argument(
+        '--tax-url',
+        default='ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz',
+        help='url for downloading taxdump file [%(default)s]')
+    lineage_parser.add_argument(
+        '--no-rank-suffix',
+        help='expand and include no rank taxonomies with appended string suffix')
+
     outs_parser = parser.add_argument_group('output options')
     outs_parser.add_argument(
         '--details-full',
@@ -891,7 +928,11 @@ def build_parser():
     outs_parser.add_argument(
         '--details-out',
         metavar='',
-        help='Optional details of taxonomic assignments.')
+        help='Optional details of taxonomic assignments')
+    outs_parser.add_argument(
+        '--lineages-out',
+        metavar='',
+        help='Output blast input specific lineages file')
     outs_parser.add_argument(
         '-o', '--out',
         metavar='',
@@ -997,7 +1038,7 @@ def condense(assignments,
         # else move down a rank
         ceiling_rank = ranks[ranks.index(ceiling_rank) + 1]
 
-        # recurse each branch down the tax tree
+        # recurse each branch down the tax # tree
         branches = sorted(groups.items(), key=operator.itemgetter(1))
         for _, g in itertools.groupby(branches, operator.itemgetter(1)):
             g = walk_taxtree(
