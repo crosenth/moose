@@ -84,8 +84,8 @@ Running the program
                             assignment [False]
       --include-ref-rank INCLUDE_REF_RANK
                             Given a single rank (species,genus,etc), include each
-                            reference sequence's tax_id as $\{rank\}_id and its
-                            taxonomic name as $\{rank\}_name in details output
+                            reference sequence's tax_id as ${rank}_id and its
+                            taxonomic name as ${rank}_name in details output
       --hits-below-threshold
                             Hits that were below the best-rank threshold will be
                             included in the details
@@ -209,13 +209,13 @@ import classifier.lineages
 import csv
 import gzip
 import itertools
-import math
 import logging
+import math
+import numpy
 import pandas as pd
 import pkg_resources
 import operator
 import os
-import numpy
 import sys
 import tarfile
 
@@ -402,9 +402,6 @@ def action(args):
     '''
     load the full lineages table.  Rank specificity as ordered from
     left (less specific) to right (more specific)
-
-    FIXME: Instead of using column order to judge rank order just
-    specify the rank order in here somewhere.
     '''
     if args.lineages:
         logging.info('reading ' + args.lineages)
@@ -416,11 +413,9 @@ def action(args):
             tree.expand_ranks(args.no_rank_suffix)
         else:  # we will want root (no rank) no matter what
             tree.include_root()
-        tree.order_ranks()
         lineages = pd.DataFrame(
             data=tree.root.get_lineages(tree.ranks),
             columns=['tax_id', 'tax_name', 'rank'] + tree.ranks)
-
     lineages = lineages.set_index('tax_id').dropna(axis='columns', how='all')
 
     if args.lineages_out:
@@ -889,7 +884,8 @@ def build_parser():
         help='Three column headerless csv file specimen,qseqid,weight')
 
     # lineage taxonomy source data
-    lineage_parser = parser.add_argument_group('lineage and ncbi source options')
+    lineage_parser = parser.add_argument_group(
+        'lineage and ncbi source options')
     lineage_parser.add_argument(
         '--lineages',
         help='Table defining taxonomic lineages for each taxonomy id')
@@ -903,7 +899,8 @@ def build_parser():
         help='url for downloading taxdump file [%(default)s]')
     lineage_parser.add_argument(
         '--no-rank-suffix',
-        help='expand and include no rank taxonomies with appended string suffix')
+        help='expand and include no rank taxonomies '
+             'with appended string suffix')
 
     outs_parser = parser.add_argument_group('output options')
     outs_parser.add_argument(
@@ -918,8 +915,8 @@ def build_parser():
         metavar='',
         help=('Given a single rank (species,genus,etc), '
               'include each reference '
-              'sequence\'s tax_id as $\{rank\}_id and its taxonomic name as '
-              '$\{rank\}_name in details output'))
+              'sequence\'s tax_id as ${rank}_id and its taxonomic name as '
+              '${rank}_name in details output'))
     outs_parser.add_argument(
         '--hits-below-threshold',
         action='store_true',
@@ -944,7 +941,8 @@ def build_parser():
 def calculate_pct_references(df, pct_reference):
     '''
     Not used yet.  Given a total number of reference sequences this function
-    will divide the sseqids by the reference sequence count for a pct_reference.
+    will divide the sseqids by the reference sequence
+    count for a pct_reference.
     '''
     reference_count = df[['tax_id']].drop_duplicates()
     reference_count = reference_count.join(pct_reference, on='tax_id')
@@ -1143,7 +1141,8 @@ def format_lineages(names, selectors, asterisk='*'):
              for n, s in names)  # add asterisk to selected names
     names = set(names)
     names = sorted(names)  # sort by the name plus asterisk
-    names = itertools.groupby(names, key=operator.itemgetter(0))  # group by just the names
+    # group by just the names
+    names = itertools.groupby(names, key=operator.itemgetter(0))
     # prefer asterisk names which will be at the bottom
     names = (list(g)[-1] for _, g in names)
     names = (n + a for n, a in names)  # combine names with asterisks

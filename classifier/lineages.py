@@ -134,11 +134,6 @@ class Tree(dict):
         self.include_root()
         self.root.expand_no_ranks(suffix, self.ranks)
 
-    def order_ranks(self):
-        ranks = set(self.ranks)
-        self.expand_ranks('_')
-        self.ranks = [r for r in self.ranks if r in ranks]
-
     def get_lineages(self):
         return self.root.get_lineages(self.ranks)
 
