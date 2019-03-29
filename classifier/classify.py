@@ -333,6 +333,8 @@ def action(args):
             header=None)
         spec_map = spec_map.drop_duplicates().set_index('qseqid')
         aligns = aligns.join(spec_map, on='qseqid', how='outer')
+        # reset index to handle qseqids representing multiple clusters
+        aligns = aligns.reset_index(drop=True)
         aligns['weight'] = aligns['weight'].fillna(1.0)
         imissing = aligns['specimen'].isna()
         aligns.loc[imissing, 'specimen'] = aligns[imissing]['qseqid']
@@ -1252,7 +1254,7 @@ def select_valid_hits(df, ranks):
             remaining_ranks = ranks[ranks.index(r):]
             found_ids = valid[na_ids].apply(
                 find_tax_id, args=(have_ids, remaining_ranks), axis=1)
-            tax_ids = have_ids[r].append(found_ids, sort=False)
+            tax_ids = have_ids[r].append(found_ids)
 
         valid[ASSIGNMENT_TAX_ID] = tax_ids
         valid['assignment_threshold'] = thresholds
