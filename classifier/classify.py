@@ -720,7 +720,8 @@ def assignment_id(df):
 
 
 def best_rank(s, ranks):
-    """Create aggregate columns for assignments.
+    """The rank with the majority associated alignments is considered best_rank.
+    In the event of a tie the most specific rank is selected.
 
     `ranks' are sorted with less specific first for example:
 
