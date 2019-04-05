@@ -259,8 +259,8 @@ ALIGNMENT_CONVERT = {
 
 OUTPUT_COLS = [
     'specimen', 'assignment_id', 'assignment',
-    'max_percent', 'min_percent', 'min_threshold',
-    'best_rank', 'reads', 'clusters', 'pct_reads']
+    'best_rank', 'max_percent', 'min_percent',
+    'min_threshold', 'reads', 'clusters', 'pct_reads']
 
 DETAILS_COLS = [
     'specimen', 'assignment_id', 'tax_name', 'rank', 'assignment_tax_name',
@@ -581,7 +581,7 @@ def action(args):
     output['max_percent'] = assignment_stats['pident'].max()
     output['min_percent'] = assignment_stats['pident'].min()
     output['min_threshold'] = assignment_stats['assignment_threshold'].min()
-    output['best_rank'] = assignment_stats['condensed_rank'].apply(
+    output['best_rank'] = assignment_stats[['condensed_rank']].apply(
         best_rank, ranks)
 
     # qseqid cluster stats
@@ -693,7 +693,7 @@ def action(args):
         args.out,
         index=True,
         float_format='%.2f',
-        columns=[c for c in output.columns if c in output_cols],
+        columns=[c for c in output_cols if c in output.columns],
         compression=get_compression(args.out))
 
 
@@ -719,7 +719,7 @@ def assignment_id(df):
     return df
 
 
-def best_rank(s, ranks):
+def best_rank(df, ranks):
     """The rank with the majority associated alignments is considered best_rank.
     In the event of a tie the most specific rank is selected.
 
@@ -731,21 +731,16 @@ def best_rank(s, ranks):
     so when sorting the indexes the most specific
     rank will be in the iloc[-1] location
     """
-
-    value_counts = s.value_counts()
-    if len(value_counts) == 0:
+    if len(df) == 0:
         # [no blast result]
         return None
     else:
         def specificity(r):
             return ranks.index(r) if r in ranks else -1
-        majority_rank = value_counts[value_counts == value_counts.max()]
-        majority_rank.name = 'rank'
-        majority_rank = majority_rank.to_frame()
-        majority_rank['specificity'] = majority_rank['rank'].apply(specificity)
-        majority_rank = majority_rank.sort_values(by=['specificity'])
+        df['specificity'] = df['condensed_rank'].apply(specificity)
+        df = df.sort_values(by=['specificity'])
         # most precise rank is at the highest index (-1)
-        return majority_rank.iloc[-1].name
+        return df['condensed_rank'].iloc[-1]
 
 
 def test():
