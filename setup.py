@@ -24,6 +24,6 @@ setuptools.setup(author='Chris Rosenthal',
                  name='classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
                  package_data={'classifier': ['data/*']},
-                 version=0.3,
+                 version=0.4,
                  url='https://github.com/crosenth/alignment_classifier'
                  )
