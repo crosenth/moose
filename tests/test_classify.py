@@ -83,7 +83,6 @@ class TestClassify(TestBase):
 
         classify_ref = os.path.join(
             thisdatadir, this_test, 'classifications.csv.bz2')
-        print(classify_ref)
         details_ref = os.path.join(
             thisdatadir, this_test, 'details.csv.bz2')
 
