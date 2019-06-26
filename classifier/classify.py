@@ -12,85 +12,9 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with classifier.  If not, see <http://www.gnu.org/licenses/>.
-"""Classify sequences by grouping alignment output by matching taxonomic names
+"""Classify sequences by grouping alignment output with taxonomy names
 
 Optional grouping by specimen and query sequences
-
-Running the program
--------------------
-
-::
-
-    positional arguments:
-      alignments            alignment file with query and subject sequence hits
-                            and optional header
-      seq_info              File mapping reference seq name to tax_id
-      lineages              Table defining the lineages for each tax_id
-
-    optional arguments:
-      -h, --help            show this help message and exit
-
-    alignment input header-less options:
-      assumed comma-seperated with header if not specified
-
-      --blast6in, -b        header-less blast-like tab-separated input
-      --columns COLUMNS, -c COLUMNS
-                            specify columns for header-less comma-seperated values
-
-    filtering options:
-      --best-n-hits BEST_N_HITS
-                            For each qseqid sequence, filter out all but the best
-                            N hits. Used in conjunction with alignment "mismatch"
-                            column.
-      --max-pident MAX_PIDENT
-                            miminum coverage of aligments
-      --min-cluster-size INTEGER
-                            minimum cluster size to include in classification
-                            output [1]
-      --min-pident MIN_PIDENT
-                            miminum coverage of alignments
-      --min-qcovs MIN_QCOVS
-                            miminum coverage of alignments [90.0]
-
-    assignment options:
-      --starred PERCENT     Names of organisms for which at least one reference
-                            sequence has pairwise identity with a query sequence
-                            of at least PERCENT will be marked with an asterisk
-                            [100.0]
-      --max-group-size INTEGER
-                            group multiple target-rank assignments that excede a
-                            threshold to a higher rank [3]
-      --split-condensed-assignments
-                            Group final assignment classifications before
-                            assigning condensed taxonomic ids
-
-    other input options:
-      --copy-numbers CSV    Estimated 16s rRNA gene copy number for each tax_ids
-                            (CSV file with columns: tax_id, median)
-      --rank-thresholds CSV
-                            Columns [tax_id,ranks...]
-      --specimen LABEL      Single group label for reads
-      --specimen-map CSV    CSV file with columns (name, specimen) assigning
-                            sequences to groups.
-      -w CSV, --weights CSV
-                            Optional headless csv file with columns 'seqname',
-                            'count' providing weights for each query sequence
-                            described in the alignment input (used, for example,
-                            to describe cluster sizes for corresponding cluster
-                            OTUs).
-
-    output options:
-      --details-full        do not limit out_details to largest cluster per
-                            assignment [False]
-      --include-ref-rank INCLUDE_REF_RANK
-                            Given a single rank (species,genus,etc), include each
-                            reference sequence's tax_id as ${rank}_id and its
-                            taxonomic name as ${rank}_name in details output
-      --hits-below-threshold
-                            Hits that were below the best-rank threshold will be
-                            included in the details
-      --details-out FILE    Optional details of taxonomic assignments.
-      -o FILE, --out FILE   classification results [default: stdout]
 
 Positional arguments
 ++++++++++++++++++++
@@ -102,8 +26,8 @@ A csv file with columns **qseqid**, **sseqid**, **pident**, and optional
 columns **qstart**, **qend**, **qlen**, **qcovs** or **mismatch**.  With
 column **qcovs** will be appended or replaced when the **qstart**,
 **qend** and **qlen** columns are present.  The **mismatch** column is used
-with the ``--best-n-hits`` switch. Additional columns may be present if a header
-is provided and will automatically be appended to detailed output.
+with the ``--best-n-hits`` switch. Additional columns may be present if a
+header is provided and will automatically be appended to detailed output.
 
 .. note:: If no header present user must specify one of the alignment input
           header-less options.
@@ -210,6 +134,7 @@ import csv
 import gzip
 import itertools
 import logging
+import lzma
 import math
 import numpy
 import pandas as pd
@@ -236,9 +161,10 @@ ALIGNMENT_DTYPES = {
     'mismatch': float,
     'pident': float,
     'qaccver': float,
-    'qcovhsp': int,
+    'qcovhsp': float,
     'qcovs': float,
     'qend': int,
+    'qlen': int,
     'qseqid': str,
     'qstart': int,
     'rank': str,
@@ -305,23 +231,27 @@ def action(args):
     output_cols = list(OUTPUT_COLS)
     details_cols = list(DETAILS_COLS)
     logging.info('loading alignments ' + args.alignments)
-    if args.blast6in:
-        aligns = pd.read_table(
-            args.alignments,
-            names=['qseqid', 'sseqid', 'pident', 'length',
-                   'mismatch', 'gapopen', 'qstart', 'qend',
-                   'sstart', 'send', 'evalue', 'bitscore'],
-            dtype=ALIGNMENT_DTYPES)
+    with opener(args.alignments) as al:
+        header = al.readline()
+    if '\t' in header:
+        sep = '\t'
     else:
-        if args.columns:
-            conv = ALIGNMENT_CONVERT
-            names = [conv.get(c, c) for c in args.columns.split(',')]
-        else:
-            names = None
-        aligns = pd.read_csv(
-            args.alignments,
-            dtype=ALIGNMENT_DTYPES,
-            names=names)
+        sep = ','
+    if args.columns:
+        conv = ALIGNMENT_CONVERT
+        names = [conv.get(c, c) for c in args.columns.split(sep)]
+    elif all(c in header for c in ['qseqid', 'sseqid', 'pident']):
+        names = None
+    else:
+        #  blast std
+        names = ['qseqid', 'sseqid', 'pident', 'length',
+                 'mismatch', 'gapopen', 'qstart', 'qend',
+                 'sstart', 'send', 'evalue', 'bitscore']
+    aligns = pd.read_csv(
+        args.alignments,
+        dtype=ALIGNMENT_DTYPES,
+        names=names,
+        sep=sep)
 
     # specimen grouping
     if args.specimen_map:
@@ -363,11 +293,6 @@ def action(args):
     # get a set of qseqids for identifying [no blast hits] after filtering
     qseqids = aligns[['specimen', 'qseqid', 'weight']].drop_duplicates()
 
-    if any([args.min_qcovs, args.max_pident, args.min_pident]):
-        logging.info('filtering results by pident and qcovs')
-        aligns = raw_filtering(
-            aligns, args.min_qcovs, args.max_pident, args.min_pident)
-
     '''
     Remove query sequences with no alignment information.
     These will be added back later but we do not want to
@@ -379,11 +304,6 @@ def action(args):
     Load seq_info as a bridge to the sequence lineages.  Additional
     columns can be specified to be included in the details-out file
     such as accession number
-
-    TODO: Just load the entire seq_info and assert the presence of seqname
-    and tax_id. Then, all additional columns can be carried through to the
-    final results.  Cleaning up our own seq_info file is something else we
-    need to do.
     '''
     if 'staxid' in aligns.columns:
         aligns = aligns.rename(columns={'staxid': 'tax_id'})
@@ -437,7 +357,7 @@ def action(args):
         logging.warning(msg.format(len_diff))
 
     # load the default rank thresholds
-    rank_thresholds = load_rank_thresholds(usecols=ranks)
+    rank_thresholds = load_rank_thresholds(args.rank_thresholds, usecols=ranks)
 
     # and any additional thresholds specified by the user
     if args.rank_thresholds:
@@ -479,17 +399,6 @@ def action(args):
         aligns_post_len = len(aligns)
         msg = '{} alignments selected for assignment'
         logging.info(msg.format(aligns_post_len))
-
-        if 'mismatch' in aligns.columns and args.best_n_hits:
-            aligns_len = len(aligns)
-            # Filter hits for each query
-            aligns = aligns.groupby(
-                by=['specimen', 'qseqid'],
-                group_keys=False).apply(filter_mismatches, args.best_n_hits)
-            aligns_post_len = len(aligns)
-            logging.info('{} ({:.0%}) hits remain after filtering '
-                         'on mismatches (--best_n_hits)'.format(
-                             aligns_post_len, aligns_post_len / aligns_len))
 
         # drop unneeded tax and threshold columns to free memory
         # TODO: see if this is necessary anymore since latest Pandas release
@@ -700,7 +609,6 @@ def action(args):
 def assign(df, tax_dict):
     """Create str assignment based on tax_ids str and starred boolean.
     """
-
     ids_stars = df.groupby(by=['condensed_id', 'starred']).groups.keys()
     df['assignment'] = compound_assignment(ids_stars, tax_dict)
     return df
@@ -720,8 +628,8 @@ def assignment_id(df):
 
 
 def best_rank(df, ranks):
-    """The rank with the majority associated alignments is considered best_rank.
-    In the event of a tie the most specific rank is selected.
+    """The rank with the majority associated alignments is considered
+    best_rank. In the event of a tie the most specific rank is selected.
 
     `ranks' are sorted with less specific first for example:
 
@@ -801,41 +709,26 @@ def build_parser():
         description=('assumed comma-seperated with header if not specified'))
     columns_parser = align_parser.add_mutually_exclusive_group(required=False)
     columns_parser.add_argument(
-        '--blast6in', '-b',
-        action='store_true',
-        help=('header-less blast-like tab-separated input'))
-    columns_parser.add_argument(
         '--columns', '-c',
         metavar='',
         help=('specify columns for header-less comma-seperated values'))
 
-    filters_parser = parser.add_argument_group('filtering options')
-    # FIXME: remove this and create --max-mismatch argument instead
-    filters_parser.add_argument(
-        '--best-n-hits',
+    selection_parser = parser.add_argument_group('selection options')
+    selection_parser = selection_parser.add_mutually_exclusive_group(
+        required=False)
+    selection_parser.add_argument(
+        '--rank-thresholds',
         metavar='',
-        type=int,
-        help=('For each qseqid sequence filter out all but the best N hits. '
-              'Used in conjunction with alignment "mismatch" column.'))
-    filters_parser.add_argument(
-        '--max-pident',
+        default=os.path.join(
+            os.path.dirname(__file__), 'data', 'rank_thresholds.csv'),
+        help='Columns [tax_id,ranks...] [%(default)s]')
+    selection_parser.add_argument(
+        '--top-n-pct',
         metavar='',
+        default=25,
         type=float,
-        help='maximum percent identity of aligments')
-    filters_parser.add_argument(
-        '--min-pident',
-        metavar='',
-        type=float,
-        help=('minimum coverage of alignments'))
-    filters_parser.add_argument(
-        '--min-qcovs',
-        metavar='',
-        type=float,
-        help=('minimum coverage of alignments'))
-
-    # TODO: add subcommand --use-qcovs, default False, indicating that
-    # "qcovs" column should be used directly; by default, coverage is
-    # calculated from other data
+        help=('top percent hits sorted by pident, evalue '
+              'or bitscore per taxonomy group'))
 
     assignment_parser = parser.add_argument_group('assignment options')
     assignment_parser.add_argument(
@@ -867,10 +760,6 @@ def build_parser():
         metavar='',
         help=('Estimated 16s rRNA gene copy number for each tax_ids '
               '(CSV file with columns: tax_id, median)'))
-    opts_parser.add_argument(
-        '--rank-thresholds',
-        metavar='',
-        help='Columns [tax_id,ranks...]')
     opts_group = opts_parser.add_mutually_exclusive_group(required=False)
     opts_group.add_argument(
         '--specimen',
@@ -1108,14 +997,6 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     return corrections
 
 
-def filter_mismatches(df, best_n):
-    """
-    Filter all hits with more mismatches than the Nth best hit
-    """
-    threshold = df['mismatch'].nsmallest(best_n).iloc[-1]
-    return df[df['mismatch'] <= threshold]
-
-
 def find_tax_id(lineage, valids, ranks):
     """Return the most taxonomic specific tax_id available for the given
     Series.  If a tax_id is already present in valids then return None.
@@ -1196,9 +1077,7 @@ def join_thresholds(df, thresholds, ranks):
     return with_thresholds
 
 
-def load_rank_thresholds(path=os.path.join(
-        os.path.dirname(__file__), 'data', 'rank_thresholds.csv'),
-        usecols=None):
+def load_rank_thresholds(path, usecols=None):
     """
     Load a rank-thresholds file.  If no argument is specified the default
     rank_threshold_defaults.csv file will be loaded.
@@ -1272,56 +1151,6 @@ def pct(s):
     return s / s.sum() * 100
 
 
-def raw_filtering(align, min_qcovs=None,
-                  max_pident=None, min_pident=None):
-    """run raw hi, low and coverage filters and output log information
-    """
-
-    align_len = len(align)
-
-    if min_qcovs:
-        # run raw hi, low and coverage filters
-        align = align[
-            align['qcovs'] >= min_qcovs]
-
-        align_post_len = len(align)
-
-        len_diff = align_len - align_post_len
-        if len_diff:
-            logging.warning('dropping {} alignments below '
-                            'coverage threshold'.format(len_diff))
-
-        align_len = align_post_len
-
-    if max_pident:
-        align = align[
-            align['pident'] <= max_pident]
-
-        align_post_len = len(align)
-
-        len_diff = align_len - align_post_len
-        if len_diff:
-            logging.warning('dropping {} alignments above max_pident'.format(
-                len_diff))
-
-        align_len = align_post_len
-
-    if min_pident:
-        align = align[
-            align['pident'] >= min_pident]
-
-        align_post_len = len(align)
-
-        len_diff = align_len - align_post_len
-        if len_diff:
-            logging.warning('dropping {} alignments below min_pident'.format(
-                len_diff))
-
-        align_len = align_post_len
-
-    return align
-
-
 def read_seqinfo(path, ids):
     """
     Iterates through seq_info file only including
@@ -1375,6 +1204,8 @@ def opener(f, mode='rt'):
         stream = bz2.open(f, mode)
     elif f.endswith('.gz'):
         stream = gzip.open(f, mode)
+    elif f.endswith('.xz'):
+        stream = lzma.open(f, mode)
     else:
         stream = open(f, mode)
     return stream
