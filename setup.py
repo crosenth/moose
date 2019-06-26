@@ -18,7 +18,7 @@ setuptools.setup(author='Chris Rosenthal',
                  description='Alignment based taxonomic classifier',
                  entry_points={
                      'console_scripts': {'classify=classifier.classify:main'}},
-                 install_requires=['pandas>=0.23.0'],
+                 install_requires=['pandas>=0.24.0'],
                  keywords=['ncbi', 'blast', 'classifier', 'genetics', 'genomics'],
                  license='GPLv3',
                  name='classifier',

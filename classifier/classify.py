@@ -217,16 +217,6 @@ def main(argv=sys.argv[1:]):
     return action(namespace)
 
 
-def get_compression(io):
-    if io is sys.stdout:
-        compression = None
-    else:
-        compress_ops = {'.gz': 'gzip', '.bz2': 'bz2'}
-        ext = os.path.splitext(io)[-1]
-        compression = compress_ops.get(ext, None)
-    return compression
-
-
 def action(args):
     output_cols = list(OUTPUT_COLS)
     details_cols = list(DETAILS_COLS)
@@ -281,12 +271,10 @@ def action(args):
         '''
         Return just the output headers if no data exists
         '''
-        pd.DataFrame(columns=output_cols).to_csv(
-            args.out, index=False, compression=get_compression(args.out))
+        pd.DataFrame(columns=output_cols).to_csv(args.out, index=False)
         if args.details_out:
             pd.DataFrame(columns=details_cols).to_csv(
                 args.details_out,
-                compression=get_compression(args.details_out),
                 index=False)
         return
 
@@ -588,7 +576,6 @@ def action(args):
 
         aligns.to_csv(
             args.details_out,
-            compression=get_compression(args.details_out),
             columns=details_cols,
             header=True,
             index=False,
@@ -600,10 +587,9 @@ def action(args):
     # output results
     output.to_csv(
         args.out,
-        index=True,
-        float_format='%.2f',
         columns=[c for c in output_cols if c in output.columns],
-        compression=get_compression(args.out))
+        index=True,
+        float_format='%.2f')
 
 
 def assign(df, tax_dict):
