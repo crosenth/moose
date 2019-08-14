@@ -1,8 +1,6 @@
 """
 Test classifier
 """
-import bz2
-import csv
 import filecmp
 import logging
 import os
@@ -21,6 +19,7 @@ class TestClassify(TestBase):
     log_info = 'classify {}'
 
     copy_numbers = os.path.join(datadir, 'rrnDB_16S_copy_num.csv.bz2')
+    rank_thresholds = os.path.join(datadir, 'rank_thresholds.csv')
 
     thisdatadir = os.path.join(datadir, 'TestClassify')
 
@@ -49,10 +48,11 @@ class TestClassify(TestBase):
 
         args = [
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--out', classify_out,
             '--details-out', details_out,
-            '--seq-info', seq_info,
             '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -88,11 +88,12 @@ class TestClassify(TestBase):
 
         args = [
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--specimen-map', specimen_map,
-            '--out', classify_out,
             '--details-out', details_out,
-            '--seq-info', seq_info,
             '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
+            '--specimen-map', specimen_map,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -114,7 +115,8 @@ class TestClassify(TestBase):
         taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
         seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
         blast = os.path.join(thisdatadir, 'blast.csv.bz2')
-        specimen_map = os.path.join(thisdatadir, this_test, 'map_single.csv.bz2')
+        specimen_map = os.path.join(
+            thisdatadir, this_test, 'map_single.csv.bz2')
 
         outdir = self.mkoutdir()
 
@@ -127,12 +129,13 @@ class TestClassify(TestBase):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
-            '--specimen-map', specimen_map,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--out', classify_out,
             '--details-out', details_out,
-            '--seq-info', seq_info,
+            '--out', classify_out,
             '--lineages', taxonomy,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
+            '--specimen-map', specimen_map,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -168,11 +171,12 @@ class TestClassify(TestBase):
 
         args = [
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--specimen-map', specimen_map,
-            '--out', classify_out,
             '--details-out', details_out,
-            '--seq-info', seq_info,
             '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
+            '--specimen-map', specimen_map,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -208,13 +212,14 @@ class TestClassify(TestBase):
 
         args = [
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--specimen-map', specimen_map,
             # '--weights', weights,
             '--copy-numbers', self.copy_numbers,
-            '--out', classify_out,
             '--details-out', details_out,
-            '--seq-info', seq_info,
             '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
+            '--specimen-map', specimen_map,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -250,11 +255,12 @@ class TestClassify(TestBase):
 
         args = [
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
+            '--details-out', details_out,
+            '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
             '--specimen-map', specimen_map,
             '--seq-info', seq_info,
-            '--details-out', details_out,
-            '--out', classify_out,
-            '--lineages', taxonomy,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -289,11 +295,12 @@ class TestClassify(TestBase):
         seq_info = os.path.join(thisdatadir, this_test, 'seq_info.csv.bz2')
 
         args = [
-            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--out', classify_out,
             '--lineages', taxonomy,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -328,13 +335,14 @@ class TestClassify(TestBase):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
-            '--seq-info', seq_info,
-            '--specimen-map', specimen_map,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             # '--weights', weights,
             '--details-out', details_out,
-            '--out', classify_out,
             '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
+            '--specimen-map', specimen_map,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -370,10 +378,11 @@ class TestClassify(TestBase):
             thisdatadir, this_test, 'classifications.csv.bz2')
 
         args = [
+            '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
             '--seq-info', seq_info,
             '--specimen-map', specimen_map,
-            '--out', classify_out,
-            '--lineages', taxonomy,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -408,11 +417,12 @@ class TestClassify(TestBase):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
-            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
-            '--out', classify_out,
             '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -449,11 +459,12 @@ class TestClassify(TestBase):
             thisdatadir, this_test, 'classifications.csv.bz2')
 
         args = [
-            '--seq-info', seq_info,
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--specimen-map', weights,
             '--out', classify_out,
             '--lineages', taxonomy,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
+            '--specimen-map', weights,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))
@@ -486,136 +497,14 @@ class TestClassify(TestBase):
             thisdatadir, this_test, 'details.csv.bz2')
 
         args = [
+            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
+            '--details-out', details_out,
+            '--hits-below-threshold',
+            '--lineages', taxonomy,
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
             '--seq-info', seq_info,
             '--specimen-map', specimen_map,
-            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--hits-below-threshold',
-            '--details-out', details_out,
-            '--out', classify_out,
-            '--lineages', taxonomy,
-            blast]
-
-        logging.info(self.log_info.format(' '.join(map(str, args))))
-
-        self.main(args)
-
-        self.assertTrue(filecmp.cmp(classify_ref, classify_out))
-        self.assertTrue(filecmp.cmp(details_ref, details_out))
-
-    def test15(self):
-        """
-        Test --best-n-hits
-        """
-        thisdatadir = self.thisdatadir
-
-        # Blast results contain:
-        # 2 strep mutans, 0 mismatch
-        # 1 strep troglodytae, 2 mismatch
-        # 1 strep infantarius, 3 mismatch
-        # All (artificially) > 99%
-        blast = os.path.join(thisdatadir, 'blast_3strepto.csv')
-        taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
-        seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
-
-        outdir = self.mkoutdir()
-
-        classify_out = os.path.join(outdir, 'classifications.csv.bz2')
-        details_out = os.path.join(outdir, 'details.csv.bz2')
-
-        args = [
-            '--seq-info', seq_info,
-            '--best-n-hits', 3,
-            '--details-out', details_out,
-            '--out', classify_out,
-            '--lineages', taxonomy,
-            blast]
-
-        logging.info(self.log_info.format(' '.join(map(str, args))))
-
-        self.main(args)
-
-        names = set()
-        for line in csv.DictReader(bz2.open(details_out, mode='rt')):
-            names.add(line['tax_name'])
-
-        """
-        Normally we would expect 4 details rows spanning 3 tax_names, lending
-        to the classification "Streptococcus infantarius/mutans*/troglodytae
-        With --best-n-hits, we expect 3 details rows
-        lending to the classification
-        """
-        self.assertTrue(len(names) == 2)
-
-    def test17(self):
-        """
-        min-pident 99, max-pident 100
-        """
-
-        this_test = sys._getframe().f_code.co_name
-
-        thisdatadir = self.thisdatadir
-
-        taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
-        seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
-        blast = os.path.join(thisdatadir, 'blast.csv.bz2')
-
-        outdir = self.mkoutdir()
-
-        classify_out = os.path.join(outdir, 'classifications.csv.bz2')
-        details_out = os.path.join(outdir, 'details.csv.bz2')
-
-        classify_ref = os.path.join(
-            thisdatadir, this_test, 'classifications.csv.bz2')
-        details_ref = os.path.join(
-            thisdatadir, this_test, 'details.csv.bz2')
-
-        args = [
-            '--seq-info', seq_info,
-            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--max-pident', '100',
-            '--min-pident', '99',
-            '--out', classify_out,
-            '--details-out', details_out,
-            '--lineages', taxonomy,
-            blast]
-
-        logging.info(self.log_info.format(' '.join(map(str, args))))
-
-        self.main(args)
-
-        self.assertTrue(filecmp.cmp(classify_ref, classify_out))
-        self.assertTrue(filecmp.cmp(details_ref, details_out))
-
-    def test18(self):
-        """
-        min qcovs
-        """
-
-        this_test = sys._getframe().f_code.co_name
-
-        thisdatadir = self.thisdatadir
-
-        taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
-        seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
-        blast = os.path.join(thisdatadir, 'blast.csv.bz2')
-
-        outdir = self.mkoutdir()
-
-        classify_out = os.path.join(outdir, 'classifications.csv.bz2')
-        details_out = os.path.join(outdir, 'details.csv.bz2')
-
-        classify_ref = os.path.join(
-            thisdatadir, this_test, 'classifications.csv.bz2')
-        details_ref = os.path.join(
-            thisdatadir, this_test, 'details.csv.bz2')
-
-        args = [
-            '--seq-info', seq_info,
-            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
-            '--min-qcovs', '99',
-            '--out', classify_out,
-            '--details-out', details_out,
-            '--lineages', taxonomy,
             blast]
 
         logging.info(self.log_info.format(' '.join(map(str, args))))

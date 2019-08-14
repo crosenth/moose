@@ -344,18 +344,25 @@ def action(args):
         msg = '{} subject sequences dropped without records in lineages file'
         logging.warning(msg.format(len_diff))
 
-    # load the default rank thresholds
-    rank_thresholds = load_rank_thresholds(args.rank_thresholds, usecols=ranks)
-
-    # and any additional thresholds specified by the user
     if args.rank_thresholds:
-        rank_thresholds = rank_thresholds.append(
-            load_rank_thresholds(path=args.rank_thresholds, usecols=ranks))
-        # overwrite with user defined tax_id threshold
+        rank_thresholds = load_rank_thresholds(args.rank_thresholds, ranks)
         rank_thresholds = rank_thresholds.groupby(level=0, sort=False).last()
-
-    # remove ranks not in thresholds
-    ranks = [r for r in ranks if r in rank_thresholds.columns]
+        # remove ranks not in thresholds
+        ranks = [r for r in ranks if r in rank_thresholds.columns]
+    else:
+        if 'species' in ranks:
+            ispecies = ranks.index('species')
+        else:
+            ispecies = len(ranks) - 1
+        rank_thresholds = {}
+        for i, r in enumerate(ranks):
+            if i <= ispecies:
+                rank_thresholds[r] = 0.0
+            else:
+                rank_thresholds[r] = 100.0
+        rank_thresholds = pd.DataFrame(
+            data=rank_thresholds, columns=ranks, index=['1'])
+        rank_thresholds.index.name = 'tax_id'
 
     # TODO: remove ranks with same threshold as lower/better rank
 
@@ -705,8 +712,6 @@ def build_parser():
     selection_parser.add_argument(
         '--rank-thresholds',
         metavar='',
-        default=os.path.join(
-            os.path.dirname(__file__), 'data', 'rank_thresholds.csv'),
         help='Columns [tax_id,ranks...] [%(default)s]')
     selection_parser.add_argument(
         '--top-n-pct',
@@ -1063,7 +1068,7 @@ def join_thresholds(df, thresholds, ranks):
     return with_thresholds
 
 
-def load_rank_thresholds(path, usecols=None):
+def load_rank_thresholds(path, usecols):
     """
     Load a rank-thresholds file.  If no argument is specified the default
     rank_threshold_defaults.csv file will be loaded.
