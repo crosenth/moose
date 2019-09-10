@@ -699,7 +699,7 @@ def build_parser():
 
     align_parser = parser.add_argument_group(
         title='alignment input header-less options',
-        description=('assumed comma-seperated with header if not specified'))
+        description=('will detect if header with qseqid,sseqid,pident else blast6 columns'))
     columns_parser = align_parser.add_mutually_exclusive_group(required=False)
     columns_parser.add_argument(
         '--columns', '-c',
