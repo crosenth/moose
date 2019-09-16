@@ -61,7 +61,7 @@ copy-numbers
 Below is an *example* copy numbers csv with the required columns:
 
     ====== ==================== ======
-    tax_id tax_name             median
+    tax_id tax_name             count
     ====== ==================== ======
     155977 Acaryochloris        2.00
     155978 Acaryochloris marina 2.00
@@ -220,17 +220,17 @@ def main(argv=sys.argv[1:]):
 def action(args):
     output_cols = list(OUTPUT_COLS)
     details_cols = list(DETAILS_COLS)
-    logging.info('loading alignments ' + args.alignments)
-    with opener(args.alignments) as al:
-        header = al.readline()
-    if '\t' in header:
+    logging.info('loading alignments ' + str(args.alignments))
+    aligns = opener(args.alignments)
+    header = aligns.buffer.peek().split(b'\n')[0]  # may not work on all OSs
+    if b'\t' in header:
         sep = '\t'
     else:
         sep = ','
     if args.columns:
         conv = ALIGNMENT_CONVERT
         names = [conv.get(c, c) for c in args.columns.split(sep)]
-    elif all(c in header for c in ['qseqid', 'sseqid', 'pident']):
+    elif all(c in header for c in [b'qseqid', b'sseqid', b'pident']):
         names = None
     else:
         #  blast std
@@ -238,7 +238,7 @@ def action(args):
                  'mismatch', 'gapopen', 'qstart', 'qend',
                  'sstart', 'send', 'evalue', 'bitscore']
     aligns = pd.read_csv(
-        args.alignments,
+        aligns,
         dtype=ALIGNMENT_DTYPES,
         names=names,
         sep=sep)
@@ -664,6 +664,8 @@ def build_parser():
     # required inputs
     parser.add_argument(
         'alignments',
+        default=sys.stdin,
+        nargs='?',
         help=('alignment file with query and '
               'subject sequence hits and optional header'))
     parser.add_argument(
@@ -750,7 +752,7 @@ def build_parser():
         '--copy-numbers',
         metavar='',
         help=('Estimated 16s rRNA gene copy number for each tax_ids '
-              '(CSV file with columns: tax_id, median)'))
+              '(CSV file with columns: tax_id, count)'))
     opts_group = opts_parser.add_mutually_exclusive_group(required=False)
     opts_group.add_argument(
         '--specimen',
@@ -964,14 +966,14 @@ def condense_ids(
 def copy_corrections(copy_numbers, aligns, user_file=None):
     copy_numbers = pd.read_csv(
         copy_numbers,
-        dtype=dict(tax_id=str, median=float),
-        usecols=['tax_id', 'median']).set_index('tax_id')
+        dtype=dict(tax_id=str, count=float),
+        usecols=['tax_id', 'count']).set_index('tax_id')
 
     # get root out (taxid: 1) and set it as the default correction value
 
     # set index nan (no blast result) to the default value
-    default = copy_numbers.at['1', 'median']
-    default_entry = pd.DataFrame(default, index=[None], columns=['median'])
+    default = copy_numbers.at['1', 'count']
+    default_entry = pd.DataFrame(default, index=[None], columns=['count'])
     copy_numbers = copy_numbers.append(default_entry, sort=False)
 
     # do our copy number correction math
@@ -981,10 +983,10 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     corrections = corrections.set_index(ASSIGNMENT_TAX_ID)
     corrections = corrections.join(copy_numbers)
     # any tax_id not present will receive default tax_id
-    corrections['median'] = corrections['median'].fillna(default)
+    corrections['count'] = corrections['count'].fillna(default)
     corrections = corrections.groupby(
         by=['specimen', 'assignment_hash'], sort=False)
-    corrections = corrections['median'].mean()
+    corrections = corrections['count'].mean()
     return corrections
 
 
