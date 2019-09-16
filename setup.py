@@ -7,7 +7,8 @@ if sys.version_info < (3, 0):
 setuptools.setup(author='Chris Rosenthal',
                  author_email='crosenth@gmail.com',
                  classifiers=[
-                     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+                     'License :: OSI Approved :: '
+                     'GNU General Public License v3 (GPLv3)',
                      'Development Status :: 3 - Alpha',
                      'Environment :: Console',
                      'Operating System :: OS Independent',
@@ -19,11 +20,12 @@ setuptools.setup(author='Chris Rosenthal',
                  entry_points={
                      'console_scripts': {'classify=classifier.classify:main'}},
                  install_requires=['pandas>=0.24.0'],
-                 keywords=['ncbi', 'blast', 'classifier', 'genetics', 'genomics'],
+                 keywords=[
+                     'ncbi', 'blast', 'classifier', 'genetics', 'genomics'],
                  license='GPLv3',
-                 name='classifier',
+                 name='moose_classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
                  package_data={'classifier': ['data/*']},
-                 version=0.5,
-                 url='https://github.com/crosenth/alignment_classifier'
+                 version=0.6,
+                 url='https://github.com/crosenth/moose'
                  )
