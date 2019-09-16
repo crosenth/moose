@@ -24,17 +24,19 @@ Analysis Library.
 
 moose can be installed in a few ways:
 
-  % pip3 install moose_classifier
+```
+% pip3 install moose_classifier
+```
 
 For developers:
 
-  ```
-  % pip3 install git://github.com/crosenth/moose.git
-  # or
-  % git clone git://github.com/crosenth/moose.git 
-  % cd medirect
-  % python3 setup.py install
-  ```
+```
+% pip3 install git://github.com/crosenth/moose.git
+# or
+% git clone git://github.com/crosenth/moose.git 
+% cd medirect
+% python3 setup.py install
+```
 
 ## examples
 
