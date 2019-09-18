@@ -7,7 +7,12 @@ Moose stands for nothing.  It is the name of my cat.
 
 ## authors
 
-[Chris Rosenthal](mailto:crosenth@gmail.com)
+* [Noah Hoffman](https://github.com/nhoffman)
+* [Tim Holland](https://github.com/tholland)
+* [Daniel Hoogestraat](https://github.com/dhoogest)
+* [Tyler Land](https://github.com/tyleraland)
+* [Steve Salipante](mailto:stevesal@uw.edu)
+* [Chris Rosenthal](mailto:crosenth@gmail.com)
 
 ## about
 
