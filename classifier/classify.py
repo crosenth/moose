@@ -701,7 +701,8 @@ def build_parser():
 
     align_parser = parser.add_argument_group(
         title='alignment input header-less options',
-        description=('will detect if header with qseqid,sseqid,pident else blast6 columns'))
+        description=('will detect if header with '
+                     'qseqid,sseqid,pident else blast6 columns'))
     columns_parser = align_parser.add_mutually_exclusive_group(required=False)
     columns_parser.add_argument(
         '--columns', '-c',
@@ -1097,9 +1098,8 @@ def select_valid_hits(df, ranks):
     """
 
     for r in ranks:
-        thresholds = df['{}_threshold'.format(r)]
-        pidents = df['pident']
-        valid = df[thresholds < pidents]
+        assignment_threshold = '{}_threshold'.format(r)
+        valid = df[df[assignment_threshold] < df['pident']]
 
         if valid.empty:
             # Move to higher rank
@@ -1125,8 +1125,7 @@ def select_valid_hits(df, ranks):
             tax_ids = have_ids[r].append(found_ids)
 
         valid[ASSIGNMENT_TAX_ID] = tax_ids
-        valid['assignment_threshold'] = thresholds
-        # return notnull() assignment_threshold valid values
+        valid['assignment_threshold'] = valid[assignment_threshold]
         return valid[valid[ASSIGNMENT_TAX_ID].notnull()]
 
     '''

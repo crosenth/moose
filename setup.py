@@ -27,6 +27,6 @@ setuptools.setup(author='Chris Rosenthal',
                  name='moose_classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
                  package_data={'classifier': ['data/*']},
-                 version=0.6,
+                 version=0.7,
                  url='https://github.com/crosenth/moose'
                  )
