@@ -678,7 +678,7 @@ def build_parser():
     package_parser.add_argument(
         '-V', '--version',
         action='version',
-        version=pkg_resources.get_distribution('classifier').version,
+        version=pkg_resources.get_distribution('moose-classifier').version,
         help='Print the version number and exit')
     package_parser.add_argument(
         '-l', '--log',

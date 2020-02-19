@@ -1,9 +1,5 @@
 *.pyc
 build/
-_build
-html
-MANIFEST
 dist
 *.egg-info
 test_output
-.tox
