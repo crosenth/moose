@@ -221,16 +221,20 @@ def action(args):
     output_cols = list(OUTPUT_COLS)
     details_cols = list(DETAILS_COLS)
     logging.info('loading alignments ' + str(args.alignments))
-    aligns = opener(args.alignments)
-    header = aligns.buffer.peek().split(b'\n')[0]  # may not work on all OSs
-    if b'\t' in header:
+    apath = args.alignments
+    if os.path.isfile(apath) and os.stat(apath).st_size > 0:
+        with opener(apath) as alignments:
+            header = next(alignments)
+    else:
+        header = ''
+    if '\t' in header:
         sep = '\t'
     else:
         sep = ','
     if args.columns:
         conv = ALIGNMENT_CONVERT
         names = [conv.get(c, c) for c in args.columns.split(sep)]
-    elif all(c in header for c in [b'qseqid', b'sseqid', b'pident']):
+    elif all(c in header for c in ['qseqid', 'sseqid', 'pident']):
         names = None
     else:
         #  blast std
@@ -238,7 +242,7 @@ def action(args):
                  'mismatch', 'gapopen', 'qstart', 'qend',
                  'sstart', 'send', 'evalue', 'bitscore']
     aligns = pd.read_csv(
-        aligns,
+        args.alignments,
         dtype=ALIGNMENT_DTYPES,
         names=names,
         sep=sep)
@@ -364,10 +368,11 @@ def action(args):
             data=rank_thresholds, columns=ranks, index=['1'])
         rank_thresholds.index.name = 'tax_id'
 
-    # TODO: remove ranks with same threshold as lower/better rank
-
-    rank_thresholds_cols = ['{}_threshold'.format(c) if c in ranks else c
-                            for c in rank_thresholds.columns]
+    rank_thresholds_cols = []
+    passed_cols = []
+    for c in rank_thresholds.columns:
+        rank_thresholds_cols.append('{}_threshold'.format(c))
+        passed_cols.append('{}_passed'.format(c))
     rank_thresholds.columns = rank_thresholds_cols
 
     # joining rank thresholds file
@@ -376,7 +381,18 @@ def action(args):
 
     # assign assignment tax ids based on pident and thresholds
     logging.info('selecting best alignments for classification')
-    aligns_len = float(len(aligns))
+    aligns[passed_cols] = aligns[rank_thresholds_cols].lt(
+        aligns['pident'], axis='rows')
+    for i, r in enumerate(ranks):
+        passed = aligns[r + '_passed'] & ~aligns[r].isna()
+        # always set ASSIGNMENT_TAX_ID in case
+        # tax_id is missing at assignment_level
+        aligns.loc[passed, ASSIGNMENT_TAX_ID] = aligns[r]
+        if aligns[r].any():
+            threshold = r + '_threshold'
+            aligns.loc[passed, 'assignment_threshold'] = aligns[threshold]
+            aligns.loc[passed, 'assignment_level'] = i
+        # else, if no tax_ids at all then entire assignment_level is ignored
 
     valid_hits = aligns.groupby(
         by=['specimen', 'qseqid'], group_keys=False)
@@ -390,23 +406,21 @@ def action(args):
 
     aligns = valid_hits
 
+    # drop unneeded tax and threshold columns to free memory
+    # TODO: see if this is necessary anymore since latest Pandas release
+    for c in ranks + rank_thresholds_cols + passed_cols:
+        aligns = aligns.drop(c, axis='columns')
+
     if not aligns.empty:
         aligns_post_len = len(aligns)
         msg = '{} alignments selected for assignment'
         logging.info(msg.format(aligns_post_len))
-
-        # drop unneeded tax and threshold columns to free memory
-        # TODO: see if this is necessary anymore since latest Pandas release
-        for c in ranks + rank_thresholds_cols:
-            aligns = aligns.drop(c, axis=1)
 
         # join with lineages for tax_name and rank
         aligns = aligns.join(
             lineages[['tax_name', 'rank']],
             rsuffix='_assignment',
             on=ASSIGNMENT_TAX_ID)
-
-        # no join(rprefix) (yet)
         aligns = aligns.rename(
             columns={'tax_name_assignment': 'assignment_tax_name',
                      'rank_assignment': 'assignment_rank'})
@@ -566,7 +580,7 @@ def action(args):
             append assignment_thresholds and append to --details-out
             """
             deets_cols = hits_below_threshold.columns
-            deets_cols &= set(details_cols)
+            deets_cols = deets_cols.intersection(set(details_cols))
             hits_below_threshold = hits_below_threshold[list(deets_cols)]
             threshold_cols = ['specimen', 'qseqid', 'assignment_threshold']
             assignment_thresholds = aligns[threshold_cols]
@@ -870,7 +884,6 @@ def condense(assignments,
 
     Functionality: Group items into taxonomic groups given max rank sizes.
     """
-
     floor_rank = floor_rank or ranks[-1]
     ceiling_rank = ceiling_rank or ranks[0]
 
@@ -939,7 +952,7 @@ def condense_ids(
     By taking a hash of the set (frozenset) of ids the qseqid is given a
     unique identifier (the hash).  Later, we will use this hash and
     assign an assignment name based on either the set of condensed_ids or
-    assignment_tax_ids.  The modivation for using a hash rather than
+    assignment_tax_ids.  The reason for using a hash rather than
     the actual assignment text for grouping is that the assignment text
     can contains extra annotations that are independent of which
     assignment group a qseqid belongs to such as a 100% id star.
@@ -989,18 +1002,6 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
         by=['specimen', 'assignment_hash'], sort=False)
     corrections = corrections['count'].mean()
     return corrections
-
-
-def find_tax_id(lineage, valids, ranks):
-    """Return the most taxonomic specific tax_id available for the given
-    Series.  If a tax_id is already present in valids then return None.
-    """
-    lineage = lineage[ranks]  # just the remainging higher rank tax_ids
-    lineage = lineage[~lineage.isnull()]
-    found = lineage.head(n=1)  # best available tax_id
-    key = found.index.values[0]
-    value = found.values[0]
-    return value if value not in valids[key].unique() else None
 
 
 def format_lineages(names, selectors, asterisk='*'):
@@ -1071,16 +1072,16 @@ def join_thresholds(df, thresholds, ranks):
     return with_thresholds
 
 
-def load_rank_thresholds(path, usecols):
+def load_rank_thresholds(path, ranks):
     """
     Load a rank-thresholds file.  If no argument is specified the default
     rank_threshold_defaults.csv file will be loaded.
     """
     dtypes = {'tax_id': str}
-    dtypes.update(zip(usecols, [float] * len(usecols)))
+    dtypes.update(zip(ranks, [float] * len(ranks)))
     rank_thresholds = pd.read_csv(path, comment='#', dtype=dtypes)
     rank_thresholds = rank_thresholds.set_index('tax_id')
-    drop = [col for col in rank_thresholds.columns if col not in usecols]
+    drop = [col for col in rank_thresholds.columns if col not in ranks]
     return rank_thresholds.drop(drop, axis=1)
 
 
@@ -1096,45 +1097,7 @@ def select_valid_hits(df, ranks):
     but do not have a tax_id at that rank will be bumped to a less specific
     rank id and varified as a unique tax_id.
     """
-
-    for r in ranks:
-        assignment_threshold = '{}_threshold'.format(r)
-        valid = df[df[assignment_threshold] < df['pident']]
-
-        if valid.empty:
-            # Move to higher rank
-            continue
-
-        tax_ids = valid[r]
-        na_ids = tax_ids.isnull()
-
-        '''
-        Occasionally tax_ids will be missing at a certain rank.
-        If so use the next less specific tax_id available
-        '''
-        if na_ids.all():
-            continue
-
-        if na_ids.any():
-            # bump up missing taxids
-            have_ids = valid[tax_ids.notnull()]
-            # for each row without a tax_id find the next highest tax_id
-            remaining_ranks = ranks[ranks.index(r):]
-            found_ids = valid[na_ids].apply(
-                find_tax_id, args=(have_ids, remaining_ranks), axis=1)
-            tax_ids = have_ids[r].append(found_ids)
-
-        valid[ASSIGNMENT_TAX_ID] = tax_ids
-        valid['assignment_threshold'] = valid[assignment_threshold]
-        return valid[valid[ASSIGNMENT_TAX_ID].notnull()]
-
-    '''
-    we have cycled through all the available ranks and nothing passed
-    so we return an empty df
-    '''
-    df[ASSIGNMENT_TAX_ID] = None
-    df['assignment_threshold'] = None
-    return pd.DataFrame(columns=df.columns)
+    return df[df['assignment_level'] == df['assignment_level'].max()]
 
 
 def pct(s):
