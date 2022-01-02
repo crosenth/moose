@@ -334,6 +334,9 @@ def action(args):
 
     ranks = lineages.columns.tolist()
     ranks = ranks[ranks.index('root'):]
+    cat_ranks = pd.api.types.CategoricalDtype(
+        categories=ranks[::-1], ordered=True)
+    lineages['rank'] = lineages['rank'].astype(cat_ranks)
 
     if args.lineages_out:
         lineages.to_csv(args.lineages_out)
@@ -350,7 +353,7 @@ def action(args):
 
     if args.rank_thresholds:
         rank_thresholds = load_rank_thresholds(args.rank_thresholds, ranks)
-        rank_thresholds = rank_thresholds.groupby(level=0, sort=False).last()
+        rank_thresholds = rank_thresholds.groupby(level=0).last()
         # remove ranks not in thresholds
         ranks = [r for r in ranks if r in rank_thresholds.columns]
     else:
@@ -385,17 +388,23 @@ def action(args):
         aligns['pident'], axis='rows')
     for i, r in enumerate(ranks):
         passed = aligns[r + '_passed'] & ~aligns[r].isna()
+        # always set ASSIGNMENT_TAX_ID in case a tax_id is missing at a rank
         aligns.loc[passed, ASSIGNMENT_TAX_ID] = aligns[r]
+        thresh = aligns[r + '_threshold']
         aligns.loc[passed, 'assignment_level'] = i
+        aligns.loc[passed, 'assignment_level_threshold'] = thresh
         aligns.loc[aligns[r + '_passed'], 'threshold_level'] = i
-        # see select_valid_hits for *_level logic
-    # drop hits under thresholds
-    aligns = aligns[~aligns['threshold_level'].isna()]
-    aligns['threshold_level'] = aligns['threshold_level'].astype(int)
-    aligns['assignment_level'] = aligns['assignment_level'].astype(int)
-    valid_hits = aligns.groupby(
-        by=['specimen', 'qseqid'], group_keys=False)
-    valid_hits = valid_hits.apply(select_valid_hits, ranks)
+        aligns.loc[aligns[r + '_passed'], 'threshold_level_threshold'] = thresh
+        # see select_valid_hits for how *_level are used
+    valid_hits = aligns[~aligns['threshold_level'].isna()]
+    if not valid_hits.empty:
+        spec_group = valid_hits.groupby(by=['specimen', 'qseqid'])
+        sub_cols = [
+            'threshold_level', 'assignment_level',
+            'threshold_level_threshold', 'assignment_level_threshold']
+        return_cols = ['assignment_threshold', 'selected']
+        valid_hits[return_cols] = spec_group[sub_cols].apply(select_valid_hits)
+        valid_hits = valid_hits[valid_hits['selected']]
 
     if args.hits_below_threshold:
         """
@@ -426,42 +435,45 @@ def action(args):
 
         # FIXME: why do I get the wrong best_Rank  when I drop the rank column?
         # tax_dict = lineages.drop('rank', axis='columns')
-        tax_dict = lineages.fillna('').to_dict(orient='index')
+        tax_dict = lineages.drop('rank', axis='columns')
+        tax_dict = tax_dict.fillna('').to_dict(orient='index')
 
         # create condensed assignment hashes by qseqid
         msg = 'condensing group tax_ids to size {}'.format(args.max_group_size)
         logging.info(msg)
-        aid_grp = aligns.groupby(by=['specimen', 'qseqid'])
-        aligns['condensed_id'] = aid_grp[ASSIGNMENT_TAX_ID].transform(
+        spec_grp = aligns.groupby(by=['specimen', 'qseqid'])
+        aligns['condensed_id'] = spec_grp[ASSIGNMENT_TAX_ID].transform(
                 condense_ids,
                 tax_dict,
-                ranks=ranks,
+                ranks,
+                floor_rank=ranks[-1],
+                ceiling_rank=ranks[0],
                 max_size=args.max_group_size)
-
-        aid_grp = aligns.groupby(by=['specimen', 'qseqid'])
         if args.threshold_assignments:
             col = ASSIGNMENT_TAX_ID
         else:
             col = 'condensed_id'
-        aligns['assignment_hash'] = aid_grp[col].transform(assignment_hash)
+        aligns['assignment_hash'] = spec_grp[col].transform(assignment_hash)
 
         aligns = aligns.join(
-            lineages[['rank']], on='condensed_id', rsuffix='_condensed')
-
-        aligns = aligns.rename(columns={'rank_condensed': 'condensed_rank'})
+            lineages[['rank', 'tax_name']],
+            on='condensed_id',
+            rsuffix='_condensed')
+        aligns = aligns.rename(
+            columns={
+                'rank_condensed': 'condensed_rank',
+                'tax_name_condensed': 'condensed_tax_name'})
 
         # star condensed ids if one hit meets star threshold
         by = ['specimen', 'assignment_hash', 'condensed_id']
-        aligns = aligns.groupby(
-            by=by, sort=False, group_keys=False)
-        aligns = aligns.apply(star, args.starred)
+        pgrp = aligns.groupby(by=by)
+        aligns['starred'] = pgrp['pident'].transform(star, args.starred)
 
         # assign names to assignment_hashes
-        aligns = aligns.sort_values(by='assignment_hash')
         logging.info('creating compound assignments')
-        aligns = aligns.groupby(
-            by=['specimen', 'assignment_hash'], sort=False, group_keys=False)
-        aligns = aligns.apply(assign, tax_dict)
+        name_grp = aligns.groupby(by=['specimen', 'assignment_hash'])
+        name_grp = name_grp[['condensed_tax_name', 'starred']]
+        aligns[['assignment']] = name_grp.apply(assign)
 
         # set this as str to handle na values for [no blast result]s
         aligns['starred'] = aligns['starred'].astype(str)
@@ -502,12 +514,11 @@ def action(args):
     output = output.set_index(index)
 
     # assignment level stats
-    assignment_stats = aligns.groupby(by=index, sort=False)
+    assignment_stats = aligns.groupby(by=index)
     output['max_percent'] = assignment_stats['pident'].max()
     output['min_percent'] = assignment_stats['pident'].min()
     output['min_threshold'] = assignment_stats['assignment_threshold'].min()
-    output['best_rank'] = assignment_stats[['condensed_rank']].apply(
-        best_rank, ranks)
+    output['best_rank'] = assignment_stats['condensed_rank'].min()
 
     # qseqid cluster stats
     weights = aligns[
@@ -517,30 +528,29 @@ def action(args):
 
     cluster_stats = weights[['specimen', 'assignment_hash', 'weight']]
     cluster_stats = cluster_stats.reset_index().drop_duplicates()
-    cluster_stats = cluster_stats.groupby(
-        by=['specimen', 'assignment_hash'], sort=False)
+    cluster_stats = cluster_stats.groupby(by=['specimen', 'assignment_hash'])
 
     output['reads'] = cluster_stats['weight'].sum()
     output['clusters'] = cluster_stats.size()
 
     # specimen level stats
-    specimen_stats = output.groupby(level='specimen', sort=False)
-    output['pct_reads'] = specimen_stats['reads'].apply(pct)
+    specimen_stats = output.groupby(level='specimen')
+    output['pct_reads'] = specimen_stats['reads'].transform(pct)
 
     # copy number corrections
     if args.copy_numbers:
         corrections = copy_corrections(args.copy_numbers, aligns)
         output['corrected'] = output['reads'] / corrections
         # reset corrected counts to int before calculating pct_corrected
-        output['corrected'] = output['corrected'].apply(math.ceil)
+        output['corrected'] = output['corrected'].transform(math.ceil)
         output['corrected'] = output['corrected'].fillna(1).astype(int)
         # create pct_corrected column
-        output['pct_corrected'] = specimen_stats['corrected'].apply(pct)
+        output['pct_corrected'] = specimen_stats['corrected'].transform(pct)
         output['pct_corrected'] = output['pct_corrected'].map(round_up)
         output_cols.extend(['corrected', 'pct_corrected'])
 
     # round reads for output
-    output['reads'] = output['reads'].apply(round).astype(int)
+    output['reads'] = output['reads'].transform(round).astype(int)
     output['pct_reads'] = output['pct_reads'].map(round_up)
 
     # sort output by:
@@ -570,8 +580,7 @@ def action(args):
             weights['assignment_threshold'] = weights[
                 'assignment_threshold'].fillna(0)
             largest = weights.groupby(
-                by=['specimen', 'assignment_hash', 'assignment_threshold'],
-                sort=False)
+                by=['specimen', 'assignment_hash', 'assignment_threshold'])
             largest = largest.apply(lambda x: x['weight'].nlargest(1))
             largest = largest.reset_index()
             # assignment_threshold will conflict with aligns NA values
@@ -595,7 +604,8 @@ def action(args):
             hits_below_threshold = hits_below_threshold.merge(
                 assignment_thresholds, how='left')
             aligns = pd.concat(
-                [aligns, hits_below_threshold], ignore_index=True, sort=False)
+                [aligns, hits_below_threshold],
+                ignore_index=True)
 
         """sort details for consistency and ease of viewing.
         [no blast results] may have irregular aligns.columns
@@ -620,12 +630,25 @@ def action(args):
         float_format='%.2f')
 
 
-def assign(df, tax_dict):
-    """Create str assignment based on tax_ids str and starred boolean.
+def assign(df):
     """
-    ids_stars = df.groupby(by=['condensed_id', 'starred']).groups.keys()
-    df['assignment'] = compound_assignment(ids_stars, tax_dict)
-    return df
+    Create taxonomic names based on 'assignments', which are a set of
+    two-tuples: {(tax_name, is_starred), ...} where each tax_id is a key
+    into taxdict, and is_starred is a boolean indicating whether at
+    least one reference sequence had a parirwise alignment identity
+    score meeting some thresholed. 'taxdict' is a dictionary keyed by
+    tax_id and returning a dict of taxonomic data corresponding to a
+    row from the lineages file. If 'include_stars' is False, ignore
+    the second element of each tuple in 'assignments' and do not
+    include asterisks in the output names.
+    assignments = [(tax_id, is_starred),...]
+    lineages = {taxid:lineages}
+    Functionality: see format_lineages
+    """
+    ids_stars = df.drop_duplicates()
+    ids_stars = zip(*ids_stars.values.tolist())
+    df['assignment'] = format_lineages(*ids_stars, asterisk='*')
+    return df[['assignment']]
 
 
 def assignment_id(df):
@@ -639,30 +662,6 @@ def assignment_id(df):
     df.index.name = 'assignment_id'
     df.index = df.index.astype(str)
     return df
-
-
-def best_rank(df, ranks):
-    """The rank with the majority associated alignments is considered
-    best_rank. In the event of a tie the most specific rank is selected.
-
-    `ranks' are sorted with less specific first for example:
-
-    ['root', 'kingdom', 'phylum', 'order', 'family',
-     'genus', 'species_group', 'species']
-
-    so when sorting the indexes the most specific
-    rank will be in the iloc[-1] location
-    """
-    if len(df) == 0:
-        # [no blast result]
-        return None
-    else:
-        def specificity(r):
-            return ranks.index(r) if r in ranks else -1
-        df['specificity'] = df['condensed_rank'].apply(specificity)
-        df = df.sort_values(by=['specificity'])
-        # most precise rank is at the highest index (-1)
-        return df['condensed_rank'].iloc[-1]
 
 
 def test():
@@ -854,30 +853,6 @@ def calculate_pct_references(df, pct_reference):
     return df
 
 
-def compound_assignment(assignments, lineages):
-    """
-    Create taxonomic names based on 'assignmnets', which are a set of
-    two-tuples: {(tax_id, is_starred), ...} where each tax_id is a key
-    into taxdict, and is_starred is a boolean indicating whether at
-    least one reference sequence had a parirwise alignment identity
-    score meeting some thresholed. 'taxdict' is a dictionary keyed by
-    tax_id and returning a dict of taxonomic data corresponding to a
-    row from the lineages file. If 'include_stars' is False, ignore
-    the second element of each tuple in 'assignments' and do not
-    include asterisks in the output names.
-    assignments = [(tax_id, is_starred),...]
-    lineages = {taxid:lineages}
-    Functionality: see format_lineages
-    """
-    if not lineages:
-        raise TypeError('lineages must not be empty or NoneType')
-
-    assignments = ((lineages[i]['tax_name'], a) for i, a in assignments)
-    assignments = zip(*assignments)
-
-    return format_lineages(*assignments, asterisk='*')
-
-
 def condense_ids(tax_ids,
                  lineages,
                  ranks,
@@ -893,23 +868,6 @@ def condense_ids(tax_ids,
     """
     floor_rank = floor_rank or ranks[-1]
     ceiling_rank = ceiling_rank or ranks[0]
-
-    # FIXME: move these checks out of here
-    # if not lineages:
-    #     raise TypeError('lineages must not be empty or NoneType')
-
-    # if floor_rank not in ranks:
-    #     msg = '{} not in ranks: {}'.format(floor_rank, ranks)
-    #     raise TypeError(msg)
-
-    # if ceiling_rank not in ranks:
-    #     msg = '{} not in ranks: {}'.format(ceiling_rank, ranks)
-    #     raise TypeError(msg)
-
-    # if ranks.index(floor_rank) < ranks.index(ceiling_rank):
-    #     msg = '{} cannot be lower rank than {}'.format(
-    #         ceiling_rank, floor_rank)
-    #     raise TypeError(msg)
 
     # set rank to ceiling
     try:
@@ -952,9 +910,6 @@ def condense_ids(tax_ids,
 
 def assignment_hash(s):
     """
-    Creates the assignment hash on either the condensed_id or assignment_tax_id
-    decided by the --split-condensed-assignments switch.
-
     By taking a hash of the set (frozenset) of ids the qseqid is given a
     unique identifier (the hash).  Later, we will use this hash and
     assign an assignment name based on either the set of condensed_ids or
@@ -977,7 +932,7 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     # set index nan (no blast result) to the default value
     default = copy_numbers.at['1', 'count']
     default_entry = pd.DataFrame(default, index=[None], columns=['count'])
-    copy_numbers = copy_numbers.append(default_entry, sort=False)
+    copy_numbers = copy_numbers.append(default_entry)
 
     # do our copy number correction math
     corrections = aligns[
@@ -987,8 +942,7 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     corrections = corrections.join(copy_numbers)
     # any tax_id not present will receive default tax_id
     corrections['count'] = corrections['count'].fillna(default)
-    corrections = corrections.groupby(
-        by=['specimen', 'assignment_hash'], sort=False)
+    corrections = corrections.groupby(by=['specimen', 'assignment_hash'])
     corrections = corrections['count'].mean()
     return corrections
 
@@ -1047,7 +1001,7 @@ def join_thresholds(df, thresholds, ranks):
 
     for r in ranks:
         with_thresholds = with_thresholds.append(
-            df.join(thresholds, on=r, how='inner'), sort=False)
+            df.join(thresholds, on=r, how='inner'))
         no_threshold = df[~df.index.isin(with_thresholds.index)]
         df = no_threshold
 
@@ -1080,13 +1034,10 @@ def round_up(x):
     return max(0.01, x)
 
 
-def select_valid_hits(df, ranks):
-    """Return valid hits of the most specific rank that passed their
-    corresponding rank thresholds.  Hits that pass their rank thresholds
-    but do not have a tax_id at that rank will be bumped to a higher
-    rank.
+def select_valid_hits(df):
+    """Return threshold passing hits at the lowest possible rank.
 
-    In this example:
+    Example 1:
 
     sseqid     | pident | genus  | species_group | genus_threshold | species_
                |        |        |               |                 | group_
@@ -1096,7 +1047,9 @@ def select_valid_hits(df, ranks):
     S0002      | 97.32  | 28100  |               | 98.0            | 97.0
 
     Just hit S0001 is returned as the best available hit a the species_group
-    rank level. In the second example:
+    rank level.
+
+    Example 2:
 
     sseqid     | pident | genus  | species_group | genus_threshold | species_
                |        |        |               |                 | group_
@@ -1110,13 +1063,14 @@ def select_valid_hits(df, ranks):
     """
     tlevel = df['threshold_level'].max()
     alevel = df['assignment_level'].max()
+    df['selected'] = False
     if alevel < tlevel:
-        df = df[df['assignment_level'] == alevel]
-        df['assignment_threshold'] = df[ranks[alevel] + '_threshold']
+        df['assignment_threshold'] = df['assignment_level_threshold']
+        df.loc[df['assignment_level'] == alevel, 'selected'] = True
     else:
-        df = df[df['threshold_level'] == tlevel]
-        df['assignment_threshold'] = df[ranks[tlevel] + '_threshold']
-    return df
+        df['assignment_threshold'] = df['threshold_level_threshold']
+        df.loc[df['threshold_level'] == tlevel, 'selected'] = True
+    return df[['assignment_threshold', 'selected']]
 
 
 def pct(s):
@@ -1185,9 +1139,8 @@ def opener(f, mode='rt'):
     return stream
 
 
-def star(df, starred):
+def star(s, starred):
     """Assign boolean if any items in the
     dataframe are above the star threshold.
     """
-    df['starred'] = df['pident'].apply(lambda x: x >= starred).any()
-    return df
+    return s.apply(lambda x: x >= starred).any()
