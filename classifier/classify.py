@@ -433,8 +433,7 @@ def action(args):
             columns={'tax_name_assignment': 'assignment_tax_name',
                      'rank_assignment': 'assignment_rank'})
 
-        # FIXME: why do I get the wrong best_Rank  when I drop the rank column?
-        # tax_dict = lineages.drop('rank', axis='columns')
+        # fillna() does not work with categorical dtypes
         tax_dict = lineages.drop('rank', axis='columns')
         tax_dict = tax_dict.fillna('').to_dict(orient='index')
 
