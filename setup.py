@@ -30,6 +30,6 @@ setuptools.setup(author='Chris Rosenthal',
                  license='GPLv3',
                  name='moose_classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
-                 version=0.8,
+                 version=0.9,
                  url='https://github.com/crosenth/moose'
                  )
