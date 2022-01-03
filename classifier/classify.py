@@ -383,7 +383,7 @@ def action(args):
         aligns, rank_thresholds, ranks[::-1])
 
     # assign assignment tax ids based on pident and thresholds
-    logging.info('selecting best alignments for classification')
+    logging.info('selecting best hits for classification')
     aligns[passed_cols] = aligns[rank_thresholds_cols].lt(
         aligns['pident'], axis='rows')
     for i, r in enumerate(ranks):
@@ -395,16 +395,16 @@ def action(args):
         aligns.loc[passed, 'assignment_level_threshold'] = thresh
         aligns.loc[aligns[r + '_passed'], 'threshold_level'] = i
         aligns.loc[aligns[r + '_passed'], 'threshold_level_threshold'] = thresh
-        # see select_valid_hits for how *_level are used
+        # see select_best_hits for how *_level are used
     valid_hits = aligns[~aligns['threshold_level'].isna()]
     if not valid_hits.empty:
         spec_group = valid_hits.groupby(by=['specimen', 'qseqid'])
         sub_cols = [
             'threshold_level', 'assignment_level',
             'threshold_level_threshold', 'assignment_level_threshold']
-        return_cols = ['assignment_threshold', 'selected']
-        valid_hits[return_cols] = spec_group[sub_cols].apply(select_valid_hits)
-        valid_hits = valid_hits[valid_hits['selected']]
+        return_cols = ['assignment_threshold', 'best_hit']
+        valid_hits[return_cols] = spec_group[sub_cols].apply(select_best_hits)
+        valid_hits = valid_hits[valid_hits['best_hit']]
 
     if args.hits_below_threshold:
         """
@@ -1033,43 +1033,85 @@ def round_up(x):
     return max(0.01, x)
 
 
-def select_valid_hits(df):
-    """Return threshold passing hits at the lowest possible rank.
+def select_best_hits(df):
+    """Return threshold passing hits.
 
     Example 1:
 
-    sseqid     | pident | genus  | species_group | genus_threshold | species_
-               |        |        |               |                 | group_
-               |        |        |               |                 | threshold
-    --------------------------------------------------------------------------
-    S0001      | 98.56  | 274591 | SG0001        | 98.0            | 97.0
-    S0002      | 97.32  | 28100  |               | 98.0            | 97.0
+    sseqid | pident | genus  | species_group | species
+           |        |        |               |
+           |        |        |               |
+    ---------------------------------------------------
+    S0001  | 98.56  | 274591 | G0001         | 288436
+    S0002  | 97.32  | 28100  |               | 314236
+    S0003  | 99.01  | 561    |               | 562
 
-    Just hit S0001 is returned as the best available hit a the species_group
+    | genus_    | species_   | species_
+    | threshold | group_     | threshold
+    |           | threshold  |
+    -------------------------------------
+    | 97.0      | 98.0       | 99.0
+    | 97.0      | 98.0       | 99.0
+    | 97.0      | 98.0       | 99.0
+
+    Just hit S0003 is returned as the best available hit a the species_group
     rank level.
 
     Example 2:
 
-    sseqid     | pident | genus  | species_group | genus_threshold | species_
-               |        |        |               |                 | group_
-               |        |        |               |                 | threshold
-    --------------------------------------------------------------------------
-    S0001      | 98.56  | 274591 |               | 98.0            | 97.0
-    S0002      | 97.32  | 28100  |               | 98.0            | 97.0
+    sseqid | pident | genus  | species_group | species
+           |        |        |               |
+           |        |        |               |
+    ---------------------------------------------------
+    S0001  | 98.56  | 274591 | G0001         | 288436
+    S0002  | 97.32  | 28100  |               | 314236
+    S0003  | 98.01  | 561    |               | 562
 
-    Both sseqids are returned because there are no taxonoy ids available
-    at the species_group level so the genus_threshold is used.
+    | genus_    | species_   | species_
+    | threshold | group_     | threshold
+    |           | threshold  |
+    ------------------------------------
+    | 97.0      | 98.0       | 99.0
+    | 97.0      | 98.0       | 99.0
+    | 97.0      | 98.0       | 99.0
+
+    Now S0003 has a pident of 98.01 so both S001 and S003 are selected as the
+    best hits.  Because S003 has no species_group tax_id the ASSIGNMENT_TAX_ID
+    is set to the genus level tax_id.
+
+    Example 3:
+
+    sseqid | pident | genus  | species_group | species
+           |        |        |               |
+           |        |        |               |
+    ---------------------------------------------------
+    S0001  | 97.56  | 274591 | G0001         | 288436
+    S0002  | 97.32  | 28100  |               | 314236
+    S0003  | 98.01  | 561    |               | 562
+
+    | genus_    | species_   | species_
+    | threshold | group_     | threshold
+    |           | threshold  |
+    ------------------------------------
+    | 97.0      | 98.0       | 99.0
+    | 97.0      | 98.0       | 99.0
+    | 97.0      | 98.0       | 99.0
+
+    Even though S003 is the best threshold passing hit the species_group tax_id
+    does not exist therefore the genus level threshold is used to select the
+    best hits in this example and all hits are returned with the
+    ASSIGNMENT_TAX_IDs set at the genus level.
     """
     tlevel = df['threshold_level'].max()
     alevel = df['assignment_level'].max()
-    df['selected'] = False
+    df['best_hit'] = False
     if alevel < tlevel:
+        df.loc[df['assignment_level'] == alevel, 'best_hit'] = True
         df['assignment_threshold'] = df['assignment_level_threshold']
-        df.loc[df['assignment_level'] == alevel, 'selected'] = True
     else:
+        df.loc[df['threshold_level'] == tlevel, 'best_hit'] = True
         df['assignment_threshold'] = df['threshold_level_threshold']
-        df.loc[df['threshold_level'] == tlevel, 'selected'] = True
-    return df[['assignment_threshold', 'selected']]
+    return df[['assignment_threshold', 'best_hit']]
 
 
 def pct(s):
