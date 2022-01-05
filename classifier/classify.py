@@ -403,8 +403,8 @@ def action(args):
             'threshold_level', 'assignment_level',
             'threshold_level_threshold', 'assignment_level_threshold']
         return_cols = ['assignment_threshold', 'best_hit']
-        valid_hits[return_cols] = spec_group[sub_cols].apply(select_best_hits)
-        valid_hits = valid_hits[valid_hits['best_hit']]
+        best_hits[return_cols] = spec_group[sub_cols].apply(select_best_hits)
+        best_hits = best_hits[valid_hits['best_hit']]
 
     if args.hits_below_threshold:
         """
@@ -412,7 +412,7 @@ def action(args):
         """
         hits_below_threshold = aligns[~aligns.index.isin(valid_hits.index)]
 
-    aligns = valid_hits
+    aligns = best_hits
 
     # drop unneeded tax and threshold columns to free memory
     # TODO: see if this is necessary anymore since latest Pandas release
