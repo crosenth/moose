@@ -396,21 +396,21 @@ def action(args):
         aligns.loc[aligns[r + '_passed'], 'threshold_level'] = i
         aligns.loc[aligns[r + '_passed'], 'threshold_level_threshold'] = thresh
         # see select_best_hits for how *_level are used
-    valid_hits = aligns[~aligns['threshold_level'].isna()]
-    if not valid_hits.empty:
-        spec_group = valid_hits.groupby(by=['specimen', 'qseqid'])
+    best_hits = aligns[~aligns['threshold_level'].isna()]
+    if not best_hits.empty:
+        spec_group = best_hits.groupby(by=['specimen', 'qseqid'])
         sub_cols = [
             'threshold_level', 'assignment_level',
             'threshold_level_threshold', 'assignment_level_threshold']
         return_cols = ['assignment_threshold', 'best_hit']
         best_hits[return_cols] = spec_group[sub_cols].apply(select_best_hits)
-        best_hits = best_hits[valid_hits['best_hit']]
+        best_hits = best_hits[best_hits['best_hit']]
 
     if args.hits_below_threshold:
         """
         Store all the hits to append to aligns details later
         """
-        hits_below_threshold = aligns[~aligns.index.isin(valid_hits.index)]
+        hits_below_threshold = aligns[~aligns.index.isin(best_hits.index)]
 
     aligns = best_hits
 
