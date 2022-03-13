@@ -502,7 +502,7 @@ def action(args):
     qseqids['starred'] = numpy.nan
 
     # add back qseqids that have no hits back into aligns
-    aligns = aligns.append(qseqids)
+    aligns = pd.concat([aligns, qseqids])
 
     # concludes our alignment details, on to output summary
     logging.info('summarizing output')
@@ -996,13 +996,11 @@ def join_thresholds(df, thresholds, ranks):
     not match then a warning is issued with the taxname and the alignment
     is dropped.
     """
-    with_thresholds = pd.DataFrame(columns=df.columns)  # temp DFrame
-
+    with_thresholds = []
     for r in ranks:
-        with_thresholds = with_thresholds.append(
-            df.join(thresholds, on=r, how='inner'))
-        no_threshold = df[~df.index.isin(with_thresholds.index)]
-        df = no_threshold
+        at_rank = df.join(thresholds, on=r, how='inner')
+        with_thresholds.append(at_rank)
+        df = df.drop(at_rank.index, axis='rows')
 
     # issue warning messages for everything that did not join
     if len(df) > 0:
@@ -1011,6 +1009,9 @@ def join_thresholds(df, thresholds, ranks):
                'taxonomic threshold information found')
         tax_names.apply(lambda x: logging.warning(msg.format(x)))
 
+    with_thresholds = pd.concat(with_thresholds)
+    if with_thresholds.empty:
+        with_thresholds = df.iloc[0:0]
     return with_thresholds
 
 
