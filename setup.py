@@ -1,7 +1,7 @@
 import setuptools
 import sys
 
-if sys.version_info < (3, 0):
+if sys.version_info < (3, 7):
     raise EnvironmentError('Please install using pip3 or python3')
 
 setuptools.setup(author='Chris Rosenthal',
@@ -15,10 +15,10 @@ setuptools.setup(author='Chris Rosenthal',
                      'Intended Audience :: End Users/Desktop',
                      'License :: OSI Approved :: '
                      'GNU General Public License v3 (GPLv3)',
+                     'Programming Language :: Python :: 3.10',
+                     'Programming Language :: Python :: 3.9',
                      'Programming Language :: Python :: 3.8',
                      'Programming Language :: Python :: 3.7',
-                     'Programming Language :: Python :: 3.6',
-                     'Programming Language :: Python :: 3.5',
                      ],
                  description='Alignment based taxonomic classifier',
                  entry_points={
