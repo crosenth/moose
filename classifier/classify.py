@@ -494,12 +494,14 @@ def action(args):
     qseqids = qseqids[~qseqids['qseqid'].isin(aligns['qseqid'])]
     qseqids['assignment'] = '[no blast result]'
     qseqids['assignment_hash'] = 0
-    qseqids['assignment_tax_name'] = numpy.nan
-    qseqids['assignment_rank'] = numpy.nan
-    qseqids['assignment_threshold'] = numpy.nan
-    qseqids['condensed_id'] = numpy.nan
-    qseqids['condensed_rank'] = numpy.nan
-    qseqids['starred'] = numpy.nan
+
+    if aligns.empty:
+        qseqids['assignment_tax_name'] = numpy.nan
+        qseqids['assignment_rank'] = numpy.nan
+        qseqids['assignment_threshold'] = numpy.nan
+        qseqids['condensed_id'] = numpy.nan
+        qseqids['condensed_rank'] = numpy.nan
+        qseqids['starred'] = numpy.nan
 
     # add back qseqids that have no hits back into aligns
     aligns = pd.concat([aligns, qseqids])
@@ -931,7 +933,7 @@ def copy_corrections(copy_numbers, aligns, user_file=None):
     # set index nan (no blast result) to the default value
     default = copy_numbers.at['1', 'count']
     default_entry = pd.DataFrame(default, index=[None], columns=['count'])
-    copy_numbers = copy_numbers.append(default_entry)
+    copy_numbers = pd.concat([copy_numbers, default_entry])
 
     # do our copy number correction math
     corrections = aligns[
