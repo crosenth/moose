@@ -494,17 +494,21 @@ def action(args):
     qseqids = qseqids[~qseqids['qseqid'].isin(aligns['qseqid'])]
     qseqids['assignment'] = '[no blast result]'
     qseqids['assignment_hash'] = 0
+    qseqids['assignment_tax_name'] = ''
+    qseqids['assignment_rank'] = ''
+    qseqids['assignment_threshold'] = numpy.nan
+    qseqids['condensed_id'] = ''
+    qseqids['condensed_rank'] = ''
+    qseqids['starred'] = ''
 
     if aligns.empty:
-        qseqids['assignment_tax_name'] = numpy.nan
-        qseqids['assignment_rank'] = numpy.nan
-        qseqids['assignment_threshold'] = numpy.nan
-        qseqids['condensed_id'] = numpy.nan
-        qseqids['condensed_rank'] = numpy.nan
-        qseqids['starred'] = numpy.nan
+        dtypes = qseqids.dtypes
+    else:
+        dtypes = aligns.dtypes
 
     # add back qseqids that have no hits back into aligns
     aligns = pd.concat([aligns, qseqids])
+    aligns = aligns.astype(dtypes)
 
     # concludes our alignment details, on to output summary
     logging.info('summarizing output')
