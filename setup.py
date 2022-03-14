@@ -1,7 +1,7 @@
 import setuptools
 import sys
 
-if sys.version_info < (3, 7):
+if sys.version_info < (3, 5):
     raise EnvironmentError('Please install using pip3 or python3')
 
 setuptools.setup(author='Chris Rosenthal',
