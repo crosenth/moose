@@ -1,7 +1,7 @@
 import setuptools
 import sys
 
-if sys.version_info < (3, 5):
+if sys.version_info < (3, 7):
     raise EnvironmentError('Please install using pip3 or python3')
 
 setuptools.setup(author='Chris Rosenthal',
@@ -19,13 +19,11 @@ setuptools.setup(author='Chris Rosenthal',
                      'Programming Language :: Python :: 3.9',
                      'Programming Language :: Python :: 3.8',
                      'Programming Language :: Python :: 3.7',
-                     'Programming Language :: Python :: 3.6',
-                     'Programming Language :: Python :: 3.5',
                      ],
                  description='Alignment based taxonomic classifier',
                  entry_points={
                      'console_scripts': {'classify=classifier.classify:main'}},
-                 install_requires=['pandas>=0.24.0'],
+                 install_requires=['pandas>=1.3'],
                  keywords=[
                      'ncbi', 'blast', 'classifier', 'genetics', 'genomics',
                      'dna', 'rna', 'bioinformatics'],
