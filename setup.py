@@ -6,19 +6,19 @@ if sys.version_info < (3, 7):
 
 setuptools.setup(author='Chris Rosenthal',
                  author_email='crosenth@gmail.com',
-                 classifiers=[
-                     'License :: OSI Approved :: '
-                     'GNU General Public License v3 (GPLv3)',
-                     'Development Status :: 4 - Beta',
-                     'Environment :: Console',
-                     'Operating System :: OS Independent',
-                     'Intended Audience :: End Users/Desktop',
-                     'License :: OSI Approved :: '
-                     'GNU General Public License v3 (GPLv3)',
-                     'Programming Language :: Python :: 3.9',
-                     'Programming Language :: Python :: 3.8',
-                     'Programming Language :: Python :: 3.7',
-                     ],
+                 # classifiers=[
+                 #     'License :: OSI Approved :: '
+                 #     'GNU General Public License v3 (GPLv3)',
+                 #     'Development Status :: 4 - Beta',
+                 #     'Environment :: Console',
+                 #     'Operating System :: OS Independent',
+                 #     'Intended Audience :: End Users/Desktop',
+                 #     'License :: OSI Approved :: '
+                 #     'GNU General Public License v3 (GPLv3)',
+                 #     'Programming Language :: Python :: 3.9',
+                 #     'Programming Language :: Python :: 3.8',
+                 #     'Programming Language :: Python :: 3.7',
+                 #     ],
                  description='Alignment based taxonomic classifier',
                  entry_points={
                      'console_scripts': {'classify=classifier.classify:main'}},
