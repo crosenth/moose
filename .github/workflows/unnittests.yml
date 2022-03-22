@@ -2,7 +2,7 @@ name: unittests
 
 on:
   push:
-    branches: [ gh_actions ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
@@ -22,7 +22,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest
-        # pip install cython numpy  # pypy3.*
+        # pip install cython numpy  # pypy-3.*
         python setup.py install
     - name: unittests
       run: pytest
