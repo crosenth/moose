@@ -1,8 +1,0 @@
-os:
-  - linux
-language: python
-python:
-  - '3.9'
-  - '3.8'
-install: python setup.py install
-script: python -m unittest discover
