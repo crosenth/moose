@@ -1,9 +1,7 @@
 # moose
 
-A tool for grouping and summarizing large alignment or kmer based
-classifications into something more concise and readable.
-
-Moose stands for nothing.  It is the name of my cat.
+A tool for taxonomically selecting, grouping and summarizing pairwise
+alignment classifications into something more concise and readable.
 
 ## authors
 
@@ -16,31 +14,29 @@ Moose stands for nothing.  It is the name of my cat.
 
 ## about
 
-Moose groups pairwise alignments or kmer counts by taxonomy and alignment 
-scores.  It works safely with large data sets utlizing the Python Data 
-Analysis Library.
+Moose groups pairwise alignments by taxonomy and alignment scores.  It works 
+safely with large data sets utilizing the Python Data Analysis Library.
 
 ## dependencies
 
-* Python 3.x
-* [Pandas](https://pandas.pydata.org/) >= 0.24.0
+* Python >= 3.7
+* [Pandas](https://pandas.pydata.org/) >= 1.3
 
 ## installation
 
-moose can be installed in a few ways:
+Moose can be installed in a few ways:
+
+From PyPI:
 
 ```
-% pip3 install moose_classifier
+% pip install moose_classifier
 ```
 
-For developers:
+Or cloned from Github:
 
 ```
-% pip3 install git://github.com/crosenth/moose.git
-# or
-% git clone git://github.com/crosenth/moose.git 
-% cd medirect
-% python3 setup.py install
+% git clone https://github.com/crosenth/moose.git
+% python moose/setup.py install
 ```
 
 ## examples
@@ -205,6 +201,9 @@ If `--columns` is not specified the classifier will check for a header with
 minimum qseqid,sseqid,pident columns.  If no header than blast outfmt 6 columns
 are assumed.
 
+### Alignment selection
+TODO
+
 ### Rank thresholds
 
 The Moose classifier is built to accept dynamic thresholds for any taxonomic
@@ -212,9 +211,12 @@ to provide the best possible classification using the `--rank-thresholds`
 argument. An example input looks like this:
 
 ```
-% cat rank_thresholds.csv
-tax_id,root,superkingdom,kingdom,phylum,class,order,family,genus,species
-1,75.0,75.0,75.0,80.0,90.0,93.0,95.0,97.0,99.0
+% cl rank_thresholds.csv
+|--------+------+---------+--------+-------+-------+--------+-------+---------|
+| tax_id | root | kingdom | phylum | class | order | family | genus | species | subspecies |
+|--------+------+---------+--------+-------+-------+--------+-------+---------|
+| 1      | 75.0 | 75.0    | 80.0   | 90.0  | 93.0  | 95.0   | 97.0  |  99.0   |
+|--------+------+---------+--------+-------+-------+--------+-------+---------|
 ```
 
 Any tax_id can be specified in a rank thresholds file.  If a tax_id is not
@@ -399,8 +401,19 @@ classify --columns qaccver,saccver,pident,staxid --lineages lineages.csv --rank-
 
 ### copy numbers
 
-A two column tax_id,count `--copy-numbers` csv file can be supplied for read
-count correction if a query sequence amplicon has multiple gene allele
-frequencies.  Final read counts will be divided by the average copy number
-count of all taxonomy ids used in a query sequences classification.
+Multiple copies of the gene may be present in a species genome which may
+distort the relative weight abundance of a classification.  The Moose
+Classifier excepts a two column csv file with columns `--copy-numbers`:
+
+```
+|--------+-------|
+| tax_id | count |
+|--------+-------|
+```
+
+and will divide the final classification tax_id by the count number in this
+file and expressed under the `corrected` column in the output file.  This is
+useful for adjusting relative abundance of species when, for example, 
+doing 16s classifications.
+
 
