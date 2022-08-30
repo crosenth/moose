@@ -41,7 +41,6 @@ Or cloned from Github:
 
 ## examples
 
-The Moose classifier can work with any kind of alignment or kmer based results
 The following examples will use results using 16s sequences aligned to a local
 NCBI nt database.  For instructions on creating a local blast nt database see
 the NCBI walkthrough
