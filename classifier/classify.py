@@ -234,9 +234,9 @@ def action(args):
 
     # if alignments contains a header row, set header=0 for read_csv
     if 'pident' in header:
-        header_arg=0
+        header_row=0
     else:
-        header_arg=None
+        header_row=None
         
     if args.columns:
         conv = ALIGNMENT_CONVERT
@@ -251,7 +251,7 @@ def action(args):
     aligns = pd.read_csv(
         args.alignments,
         dtype=ALIGNMENT_DTYPES,
-        header=header_arg,
+        header=header_row,
         names=names,
         sep=sep)
 
