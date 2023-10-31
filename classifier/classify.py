@@ -244,6 +244,7 @@ def action(args):
     aligns = pd.read_csv(
         args.alignments,
         dtype=ALIGNMENT_DTYPES,
+        header=0,
         names=names,
         sep=sep)
 
@@ -398,7 +399,7 @@ def action(args):
         # see select_best_hits for how *_level are used
     best_hits = aligns[~aligns['threshold_level'].isna()]
     if not best_hits.empty:
-        spec_group = best_hits.groupby(by=['specimen', 'qseqid'])
+        spec_group = best_hits.groupby(by=['specimen', 'qseqid'], group_keys=False)
         sub_cols = [
             'threshold_level', 'assignment_level',
             'threshold_level_threshold', 'assignment_level_threshold']
@@ -470,7 +471,7 @@ def action(args):
 
         # assign names to assignment_hashes
         logging.info('creating compound assignments')
-        name_grp = aligns.groupby(by=['specimen', 'assignment_hash'])
+        name_grp = aligns.groupby(by=['specimen', 'assignment_hash'], group_keys=False)
         name_grp = name_grp[['condensed_tax_name', 'starred']]
         aligns[['assignment']] = name_grp.apply(assign)
 
@@ -507,7 +508,8 @@ def action(args):
         dtypes = aligns.dtypes
 
     # add back qseqids that have no hits back into aligns
-    aligns = pd.concat([aligns, qseqids])
+    if not qseqids.empty:
+        aligns = pd.concat([aligns, qseqids])
     aligns = aligns.astype(dtypes)
 
     # concludes our alignment details, on to output summary
