@@ -9,20 +9,17 @@ setuptools.setup(author='Chris Rosenthal',
                  classifiers=[
                      'License :: OSI Approved :: '
                      'GNU General Public License v3 (GPLv3)',
-                     'Development Status :: 4 - Beta',
                      'Environment :: Console',
                      'Operating System :: OS Independent',
                      'Intended Audience :: End Users/Desktop',
                      'License :: OSI Approved :: '
                      'GNU General Public License v3 (GPLv3)',
-                     'Programming Language :: Python :: 3.9',
-                     'Programming Language :: Python :: 3.8',
-                     'Programming Language :: Python :: 3.7',
+                     'Programming Language :: Python :: 3',
                      ],
                  description='Alignment based taxonomic classifier',
                  entry_points={
                      'console_scripts': {'classify=classifier.classify:main'}},
-                 install_requires=['pandas>=1.3'],
+                 install_requires=['pandas>=2.0.2'],
                  keywords=[
                      'ncbi', 'blast', 'classifier', 'genetics', 'genomics',
                      'dna', 'rna', 'bioinformatics'],
