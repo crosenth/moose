@@ -20,7 +20,7 @@ safely with large data sets utilizing the Python Data Analysis Library.
 ## dependencies
 
 * Python >= 3.7
-* [Pandas](https://pandas.pydata.org/) >= 1.3
+* [Pandas](https://pandas.pydata.org/) >= 2.0.2
 
 ## installation
 
