@@ -138,7 +138,6 @@ import lzma
 import math
 import numpy
 import pandas as pd
-import pkg_resources
 import operator
 import os
 import sys
@@ -407,7 +406,8 @@ def action(args):
         # see select_best_hits for how *_level are used
     best_hits = aligns[~aligns['threshold_level'].isna()]
     if not best_hits.empty:
-        spec_group = best_hits.groupby(by=['specimen', 'qseqid'], group_keys=False)
+        spec_group = best_hits.groupby(
+            by=['specimen', 'qseqid'], group_keys=False)
         sub_cols = [
             'threshold_level', 'assignment_level',
             'threshold_level_threshold', 'assignment_level_threshold']
@@ -479,7 +479,8 @@ def action(args):
 
         # assign names to assignment_hashes
         logging.info('creating compound assignments')
-        name_grp = aligns.groupby(by=['specimen', 'assignment_hash'], group_keys=False)
+        name_grp = aligns.groupby(
+            by=['specimen', 'assignment_hash'], group_keys=False)
         name_grp = name_grp[['condensed_tax_name', 'starred']]
         aligns[['assignment']] = name_grp.apply(assign)
 
