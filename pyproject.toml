@@ -13,8 +13,8 @@ classifiers = [
 dependencies = ["pandas>=2.0.2"]
 description = "Alignment based taxonomic classifier"
 keywords = [
-  "ncbi", "blast", "classifier", "genetics", 
-  "genomics", "dna", "rna", "bioinformatics"
+  "bioinformatics", "blast", "classifier", "dna",
+  "genetics", "genomics", "ncbi", "rna"
 ]
 license = {file = "LICENSE"}
 name = "moose_classifier"
