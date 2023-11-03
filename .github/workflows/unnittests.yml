@@ -23,5 +23,5 @@ jobs:
     -
       name: Install and test
       run: |
-        python setup.py install
+        python -m pip install .
         python -m unittest
