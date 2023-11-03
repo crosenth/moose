@@ -129,20 +129,20 @@ TODO: generate rank thresholds based on lineages input
 """
 import argparse
 import bz2
-import classifier.lineages
 import csv
 import gzip
 import itertools
+import lineages
 import logging
 import lzma
 import math
 import numpy
 import pandas as pd
-import pkg_resources
 import operator
 import os
 import sys
 import tarfile
+from importlib.metadata import version
 
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
 
@@ -234,10 +234,10 @@ def action(args):
 
     # if alignments contains a header row, set header=0 for read_csv
     if 'pident' in header:
-        header_row=0
+        header_row = 0
     else:
-        header_row=None
-        
+        header_row = None
+
     if args.columns:
         conv = ALIGNMENT_CONVERT
         names = [conv.get(c, c) for c in args.columns.split(sep)]
@@ -406,7 +406,8 @@ def action(args):
         # see select_best_hits for how *_level are used
     best_hits = aligns[~aligns['threshold_level'].isna()]
     if not best_hits.empty:
-        spec_group = best_hits.groupby(by=['specimen', 'qseqid'], group_keys=False)
+        spec_group = best_hits.groupby(
+            by=['specimen', 'qseqid'], group_keys=False)
         sub_cols = [
             'threshold_level', 'assignment_level',
             'threshold_level_threshold', 'assignment_level_threshold']
@@ -478,7 +479,8 @@ def action(args):
 
         # assign names to assignment_hashes
         logging.info('creating compound assignments')
-        name_grp = aligns.groupby(by=['specimen', 'assignment_hash'], group_keys=False)
+        name_grp = aligns.groupby(
+            by=['specimen', 'assignment_hash'], group_keys=False)
         name_grp = name_grp[['condensed_tax_name', 'starred']]
         aligns[['assignment']] = name_grp.apply(assign)
 
@@ -684,11 +686,11 @@ def test():
 
 def build_lineages(tax_ids, tar, url):
     if tar is None or not os.path.isfile(tar):
-        tar = classifier.lineages.get_taxdmp(url)
+        tar = lineages.get_taxdmp(url)
     with tarfile.open(name=tar, mode='r:gz') as taxdmp:
         logging.info('building lineages from NCBI')
-        nodes, names = classifier.lineages.get_data(taxdmp)
-        tree = classifier.lineages.Tree(nodes, names)
+        nodes, names = lineages.get_data(taxdmp)
+        tree = lineages.Tree(nodes, names)
     tree.root.prune(tax_ids)
     return tree
 
@@ -712,7 +714,7 @@ def build_parser():
     package_parser.add_argument(
         '-V', '--version',
         action='version',
-        version=pkg_resources.get_distribution('moose-classifier').version,
+        version=version('moose-classifier'),
         help='Print the version number and exit')
     package_parser.add_argument(
         '-l', '--log',

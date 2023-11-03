@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.11', '3.10', '3.9']
+        python-version: ['3.12', '3.11', '3.10', '3.9']
     steps:
     -
       uses: actions/setup-python@v3
@@ -23,5 +23,5 @@ jobs:
     -
       name: Install and test
       run: |
-        python setup.py install
+        python -m pip install .
         python -m unittest
