@@ -1,2 +1,2 @@
 [build-system]
-requires = ["pkg_resources", "setuptools"]
+requires = ["pkg_resources", "setuptools", "wheel"]
