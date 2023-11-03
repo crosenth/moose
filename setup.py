@@ -1,8 +1,4 @@
 import setuptools
-import sys
-
-if sys.version_info < (3, 7):
-    raise EnvironmentError('Please install using pip3 or python3')
 
 setuptools.setup(author='Chris Rosenthal',
                  author_email='crosenth@gmail.com',
@@ -26,6 +22,7 @@ setuptools.setup(author='Chris Rosenthal',
                  license='GPLv3',
                  name='moose_classifier',
                  packages=setuptools.find_packages(exclude=['tests']),
-                 version=0.9,
-                 url='https://github.com/crosenth/moose'
+                 python_requires='>=3.7',
+                 url='https://github.com/crosenth/moose',
+                 version=0.9
                  )
