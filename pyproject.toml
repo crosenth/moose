@@ -1,14 +1,4 @@
 [project]
-name = "moose_classifier"
-version = "0.9"
-description = "Alignment based taxonomic classifier"
-readme = "README.md"
-requires-python = ">=3.7"
-license = {file = "LICENSE"}
-keywords = [
-  "ncbi", "blast", "classifier", "genetics", 
-  "genomics", "dna", "rna", "bioinformatics"
-]
 authors = [
   {email = "crosenth@gmail.com"},
   {name = "Chris Rosenthal"}
@@ -20,10 +10,17 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3"
 ]
-
-dependencies = [
-   "pandas>=2.0.2"
+dependencies = ["pandas>=2.0.2"]
+description = "Alignment based taxonomic classifier"
+keywords = [
+  "ncbi", "blast", "classifier", "genetics", 
+  "genomics", "dna", "rna", "bioinformatics"
 ]
+license = {file = "LICENSE"}
+name = "moose_classifier"
+readme = "README.md"
+requires-python = ">=3.7"
+version = "0.9"
 
 [project.urls]
 repository = "https://github.com/crosenth/moose"
