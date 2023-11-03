@@ -2,9 +2,9 @@ name: unittests
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
     branches: [ gha_update2 ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build:
