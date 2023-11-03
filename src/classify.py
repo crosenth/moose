@@ -129,7 +129,7 @@ TODO: generate rank thresholds based on lineages input
 """
 import argparse
 import bz2
-import classifier.lineages
+import lineages
 import csv
 import gzip
 import itertools
@@ -686,11 +686,11 @@ def test():
 
 def build_lineages(tax_ids, tar, url):
     if tar is None or not os.path.isfile(tar):
-        tar = classifier.lineages.get_taxdmp(url)
+        tar = lineages.get_taxdmp(url)
     with tarfile.open(name=tar, mode='r:gz') as taxdmp:
         logging.info('building lineages from NCBI')
-        nodes, names = classifier.lineages.get_data(taxdmp)
-        tree = classifier.lineages.Tree(nodes, names)
+        nodes, names = lineages.get_data(taxdmp)
+        tree = lineages.Tree(nodes, names)
     tree.root.prune(tax_ids)
     return tree
 

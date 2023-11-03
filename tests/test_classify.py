@@ -1,12 +1,12 @@
 """
 Test classifier
 """
+import classify
 import filecmp
 import logging
 import os
 import sys
 
-from classifier import classify
 
 from tests import TestBase, datadir as datadir
 
