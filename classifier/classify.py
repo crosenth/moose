@@ -143,6 +143,7 @@ import operator
 import os
 import sys
 import tarfile
+from importlib.metadata import version
 
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
 
@@ -234,10 +235,10 @@ def action(args):
 
     # if alignments contains a header row, set header=0 for read_csv
     if 'pident' in header:
-        header_row=0
+        header_row = 0
     else:
-        header_row=None
-        
+        header_row = None
+
     if args.columns:
         conv = ALIGNMENT_CONVERT
         names = [conv.get(c, c) for c in args.columns.split(sep)]
@@ -712,7 +713,7 @@ def build_parser():
     package_parser.add_argument(
         '-V', '--version',
         action='version',
-        version=pkg_resources.get_distribution('moose-classifier').version,
+        version=version('moose-classifier'),
         help='Print the version number and exit')
     package_parser.add_argument(
         '-l', '--log',
