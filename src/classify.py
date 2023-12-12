@@ -490,15 +490,22 @@ def action(args):
         # Foreach ref rank:
         # - merge with lineages, extract rank_id, rank_name
         for rank in args.include_ref_rank:
-            aligns[rank + '_id'] = aligns.merge(
+            merged = aligns.merge(
                 lineages, left_on='tax_id',
                 right_index=True,
-                how='left')[rank].fillna("")
-            aligns[rank + '_name'] = aligns.merge(
+                how='left')
+            # ensure ref rank wasn't dropped as empty, and fill
+            # with empty strings if it was
+            if rank in merged.columns:
+                aligns[rank + '_id'] = merged[rank]
+                aligns[rank + '_name'] = aligns.merge(
                 lineages,
                 left_on=rank + '_id',
                 right_index=True,
                 how='left')['tax_name_y'].fillna("")
+            else:
+                aligns[rank + '_id'] = ""
+                aligns[rank + '_name'] = ""
 
     # assign seqs that had no results to [no blast_result]
     qseqids = qseqids[~qseqids['qseqid'].isin(aligns['qseqid'])]
