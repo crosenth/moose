@@ -493,12 +493,12 @@ def action(args):
             aligns[rank + '_id'] = aligns.merge(
                 lineages, left_on='tax_id',
                 right_index=True,
-                how='left')[rank].fillna(0)
+                how='left')[rank].fillna("")
             aligns[rank + '_name'] = aligns.merge(
                 lineages,
                 left_on=rank + '_id',
                 right_index=True,
-                how='left')['tax_name_y']
+                how='left')['tax_name_y'].fillna("")
 
     # assign seqs that had no results to [no blast_result]
     qseqids = qseqids[~qseqids['qseqid'].isin(aligns['qseqid'])]
