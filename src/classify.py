@@ -132,7 +132,7 @@ import bz2
 import csv
 import gzip
 import itertools
-import lineages
+from src import __version__, lineages
 import logging
 import lzma
 import math
@@ -142,7 +142,6 @@ import operator
 import os
 import sys
 import tarfile
-from importlib.metadata import version
 
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
 
@@ -597,7 +596,7 @@ def action(args):
                 'assignment_threshold'].fillna(0)
             largest = weights.groupby(
                 by=['specimen', 'assignment_hash', 'assignment_threshold'])
-            largest = largest.apply(lambda x: x['weight'].nlargest(1))
+            largest = largest['weight'].nlargest(1)
             largest = largest.reset_index()
             # assignment_threshold will conflict with aligns NA values
             largest = largest.drop('assignment_threshold', axis=1)
@@ -714,7 +713,7 @@ def build_parser():
     package_parser.add_argument(
         '-V', '--version',
         action='version',
-        version=version('moose-classifier'),
+        version=__version__,
         help='Print the version number and exit')
     package_parser.add_argument(
         '-l', '--log',
