@@ -1,7 +1,7 @@
 """
 Test classifier
 """
-from src import classify
+import classify
 import filecmp
 import logging
 import os

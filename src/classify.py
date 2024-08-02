@@ -132,7 +132,7 @@ import bz2
 import csv
 import gzip
 import itertools
-from src import __version__, lineages
+import lineages
 import logging
 import lzma
 import math
@@ -142,6 +142,7 @@ import operator
 import os
 import sys
 import tarfile
+import version
 
 ASSIGNMENT_TAX_ID = 'assignment_tax_id'
 
@@ -713,7 +714,7 @@ def build_parser():
     package_parser.add_argument(
         '-V', '--version',
         action='version',
-        version=__version__,
+        version=version.__version__,
         help='Print the version number and exit')
     package_parser.add_argument(
         '-l', '--log',
