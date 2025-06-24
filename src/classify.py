@@ -412,7 +412,8 @@ def action(args):
             'threshold_level', 'assignment_level',
             'threshold_level_threshold', 'assignment_level_threshold']
         return_cols = ['assignment_threshold', 'best_hit']
-        best_hits[return_cols] = spec_group[sub_cols].apply(select_best_hits)
+        best_hits.loc[:, return_cols] = spec_group[sub_cols].apply(
+            select_best_hits)
         best_hits = best_hits[best_hits['best_hit']]
 
     if args.hits_below_threshold:
@@ -506,20 +507,16 @@ def action(args):
     qseqids['assignment_hash'] = 0
     qseqids['assignment_tax_name'] = ''
     qseqids['assignment_rank'] = ''
+    qseqids['assignment_rank'] = qseqids['assignment_rank'].astype(cat_ranks)
     qseqids['assignment_threshold'] = numpy.nan
     qseqids['condensed_id'] = ''
     qseqids['condensed_rank'] = ''
+    qseqids['condensed_rank'] = qseqids['condensed_rank'].astype(cat_ranks)
     qseqids['starred'] = ''
-
-    if aligns.empty:
-        dtypes = qseqids.dtypes
-    else:
-        dtypes = aligns.dtypes
 
     # add back qseqids that have no hits back into aligns
     if not qseqids.empty:
         aligns = pd.concat([aligns, qseqids])
-    aligns = aligns.astype(dtypes)
 
     # concludes our alignment details, on to output summary
     logging.info('summarizing output')
