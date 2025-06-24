@@ -20,7 +20,7 @@ license = {file = "LICENSE"}
 name = "moose_classifier"
 readme = "README.md"
 requires-python = ">=3.7"
-version = "0.11"
+version = "0.12"
 
 [project.urls]
 repository = "https://github.com/crosenth/moose"
