@@ -344,7 +344,14 @@ def action(args):
         lineages = pd.DataFrame(
             data=tree.root.get_lineages(tree.ranks),
             columns=['tax_id', 'tax_name', 'rank'] + tree.ranks)
-    lineages = lineages.set_index('tax_id').dropna(axis='columns', how='all')
+    # Only drop columns with all NaN if they are not in include_ref_rank
+    lineages = lineages.set_index('tax_id')
+    if args.include_ref_rank:
+        cols_to_check = set(lineages.columns) - set(args.include_ref_rank)
+        cols_to_drop = [col for col in cols_to_check if lineages[col].isna().all()]
+        lineages = lineages.drop(columns=cols_to_drop)
+    else:
+        lineages = lineages.dropna(axis='columns', how='all')
 
     ranks = lineages.columns.tolist()
     ranks = ranks[ranks.index('root'):]
