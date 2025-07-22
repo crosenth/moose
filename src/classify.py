@@ -333,6 +333,7 @@ def action(args):
             set(aligns['tax_id'].tolist()),
             include_ranks=args.include_ref_rank if args.include_ref_rank else None
         )
+
     else:
         tis = set(aligns['tax_id'].tolist())
         tree = build_lineages(tis, args.taxdump, args.tax_url)
@@ -350,7 +351,7 @@ def action(args):
     cat_ranks = pd.api.types.CategoricalDtype(
         categories=ranks[::-1], ordered=True)
     lineages['rank'] = lineages['rank'].astype(cat_ranks)
-
+    print(ranks)
     if args.lineages_out:
         lineages.to_csv(args.lineages_out)
 
@@ -1177,6 +1178,7 @@ def read_lineages(path, ids, include_ranks=None):
     # Ensure include_ranks columns are present, even if empty
     if include_ranks is not None:
         for rank in include_ranks:
+            print(rank)
             if rank not in df.columns:
                 df[rank] = numpy.nan
     return df
