@@ -327,11 +327,9 @@ def action(args):
     '''
     if args.lineages:
         logging.info('reading ' + args.lineages)
-        # Pass include_ref_rank to read_lineages to ensure those columns are present
         lineages = read_lineages(
             args.lineages,
-            set(aligns['tax_id'].tolist()),
-            include_ranks=args.include_ref_rank if args.include_ref_rank else None
+            set(aligns['tax_id'].tolist())
         )
 
     else:
@@ -398,15 +396,6 @@ def action(args):
         rank_thresholds_cols.append('{}_threshold'.format(c))
         passed_cols.append('{}_passed'.format(c))
     rank_thresholds.columns = rank_thresholds_cols
-
-    # Ensure all rank columns exist and are of object dtype before joining thresholds
-    for r in ranks:
-        if r not in aligns.columns:
-            aligns[r] = ""
-        aligns[r] = aligns[r].astype(str)
-        if r not in rank_thresholds.columns:
-            rank_thresholds[r] = ""
-        rank_thresholds[r] = rank_thresholds[r].astype(str)
 
     # joining rank thresholds file
     aligns = join_thresholds(
@@ -1171,7 +1160,7 @@ def read_seqinfo(path, ids):
     return pd.Series(data=seq_info, name='tax_id')
 
 
-def read_lineages(path, ids, include_ranks=None):
+def read_lineages(path, ids):
     """
     Iterates through lineages file only including necessary lineages
 
@@ -1190,14 +1179,8 @@ def read_lineages(path, ids, include_ranks=None):
         taxcsv = (r for r in taxcsv if r[tax_id] in tax_ids)
         taxcsv = (map(lambda x: x if x else numpy.nan, r) for r in taxcsv)
         data = [dict(zip(header, r)) for r in taxcsv]
-    df = pd.DataFrame(data=data, columns=header)
-    # Ensure include_ranks columns are present, even if empty
-    if include_ranks is not None:
-        for rank in include_ranks:
-            print(rank)
-            if rank not in df.columns:
-                df[rank] = numpy.nan
-    return df
+
+    return pd.DataFrame(data=data, columns=header)
 
 
 def opener(f, mode='rt'):

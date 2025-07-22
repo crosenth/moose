@@ -541,7 +541,7 @@ class TestClassify(TestBase):
             '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
             '--details-out', details_out,
             '--lineages', taxonomy,
-            '--include-ref-rank', 'species_group',
+            '--include-ref-rank', 'forma',
             '--out', classify_out,
             '--rank-thresholds', self.rank_thresholds,
             '--seq-info', seq_info,
