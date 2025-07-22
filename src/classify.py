@@ -399,6 +399,15 @@ def action(args):
         passed_cols.append('{}_passed'.format(c))
     rank_thresholds.columns = rank_thresholds_cols
 
+    # Ensure all rank columns exist and are of object dtype before joining thresholds
+    for r in ranks:
+        if r not in aligns.columns:
+            aligns[r] = ""
+        aligns[r] = aligns[r].astype(str)
+        if r not in rank_thresholds.columns:
+            rank_thresholds[r] = ""
+        rank_thresholds[r] = rank_thresholds[r].astype(str)
+
     # joining rank thresholds file
     aligns = join_thresholds(
         aligns, rank_thresholds, ranks[::-1])
