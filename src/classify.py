@@ -327,7 +327,12 @@ def action(args):
     '''
     if args.lineages:
         logging.info('reading ' + args.lineages)
-        lineages = read_lineages(args.lineages, set(aligns['tax_id'].tolist()))
+        # Pass include_ref_rank to read_lineages to ensure those columns are present
+        lineages = read_lineages(
+            args.lineages,
+            set(aligns['tax_id'].tolist()),
+            include_ranks=args.include_ref_rank if args.include_ref_rank else None
+        )
     else:
         tis = set(aligns['tax_id'].tolist())
         tree = build_lineages(tis, args.taxdump, args.tax_url)
@@ -1149,11 +1154,12 @@ def read_seqinfo(path, ids):
     return pd.Series(data=seq_info, name='tax_id')
 
 
-def read_lineages(path, ids):
+def read_lineages(path, ids, include_ranks=None):
     """
     Iterates through lineages file only including necessary lineages
 
-    FIXME: tax_ids after first pass can disappear if tax_id rank not in columns
+    If include_ranks is provided, ensures those columns are present in the output,
+    even if they are empty for all selected tax_ids.
     """
     with opener(path) as taxfile:
         taxcsv = csv.reader(taxfile)
@@ -1167,7 +1173,13 @@ def read_lineages(path, ids):
         taxcsv = (r for r in taxcsv if r[tax_id] in tax_ids)
         taxcsv = (map(lambda x: x if x else numpy.nan, r) for r in taxcsv)
         data = [dict(zip(header, r)) for r in taxcsv]
-    return pd.DataFrame(data=data, columns=header)
+    df = pd.DataFrame(data=data, columns=header)
+    # Ensure include_ranks columns are present, even if empty
+    if include_ranks is not None:
+        for rank in include_ranks:
+            if rank not in df.columns:
+                df[rank] = numpy.nan
+    return df
 
 
 def opener(f, mode='rt'):
