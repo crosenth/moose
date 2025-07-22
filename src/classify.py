@@ -356,7 +356,6 @@ def action(args):
     cat_ranks = pd.api.types.CategoricalDtype(
         categories=ranks[::-1], ordered=True)
     lineages['rank'] = lineages['rank'].astype(cat_ranks)
-    print(ranks)
     if args.lineages_out:
         lineages.to_csv(args.lineages_out)
 
