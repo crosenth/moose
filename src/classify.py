@@ -327,11 +327,13 @@ def action(args):
     '''
     if args.lineages:
         logging.info('reading ' + args.lineages)
+        # Pass include_ref_rank to read_lineages to ensure those columns are present
         lineages = read_lineages(
             args.lineages,
-            set(aligns['tax_id'].tolist())
+            set(aligns['tax_id'].tolist()),
+            include_ranks=args.include_ref_rank if args.include_ref_rank else None
         )
-
+        
     else:
         tis = set(aligns['tax_id'].tolist())
         tree = build_lineages(tis, args.taxdump, args.tax_url)
@@ -348,6 +350,8 @@ def action(args):
         cols_to_check = set(lineages.columns) - set(args.include_ref_rank)
         cols_to_drop = [col for col in cols_to_check if lineages[col].isna().all()]
         lineages = lineages.drop(columns=cols_to_drop)
+        for rank in args.include_ref_rank:
+            lineages[rank] = lineages[rank].astype(object)
     else:
         lineages = lineages.dropna(axis='columns', how='all')
 
@@ -356,6 +360,7 @@ def action(args):
     cat_ranks = pd.api.types.CategoricalDtype(
         categories=ranks[::-1], ordered=True)
     lineages['rank'] = lineages['rank'].astype(cat_ranks)
+
     if args.lineages_out:
         lineages.to_csv(args.lineages_out)
 
@@ -1164,7 +1169,7 @@ def read_seqinfo(path, ids):
     return pd.Series(data=seq_info, name='tax_id')
 
 
-def read_lineages(path, ids):
+def read_lineages(path, ids, include_ranks=None):
     """
     Iterates through lineages file only including necessary lineages
 
@@ -1183,8 +1188,13 @@ def read_lineages(path, ids):
         taxcsv = (r for r in taxcsv if r[tax_id] in tax_ids)
         taxcsv = (map(lambda x: x if x else numpy.nan, r) for r in taxcsv)
         data = [dict(zip(header, r)) for r in taxcsv]
-
-    return pd.DataFrame(data=data, columns=header)
+    df = pd.DataFrame(data=data, columns=header)
+    # Ensure include_ranks columns are present, even if empty
+    if include_ranks is not None:
+        for rank in include_ranks:
+            if rank not in df.columns:
+                df[rank] = numpy.nan
+    return df
 
 
 def opener(f, mode='rt'):
