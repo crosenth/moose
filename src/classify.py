@@ -240,7 +240,7 @@ def action(args):
 
     if args.columns:
         conv = ALIGNMENT_CONVERT
-        names = [conv.get(c, c) for c in args.columns.split(sep)]
+        names = [conv.get(c, c) for c in args.columns.split(',')]
     elif all(c in header for c in ['qseqid', 'sseqid', 'pident']):
         names = None
     else:
@@ -740,7 +740,7 @@ def build_parser():
     columns_parser.add_argument(
         '--columns', '-c',
         metavar='',
-        help=('specify columns for header-less comma-seperated values'))
+        help=('specify columns for header-less alignments, separated by comma'))
 
     selection_parser = parser.add_argument_group('selection options')
     selection_parser = selection_parser.add_mutually_exclusive_group(
