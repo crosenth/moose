@@ -220,44 +220,37 @@ def main(argv=sys.argv[1:]):
 def action(args):
     output_cols = list(OUTPUT_COLS)
     details_cols = list(DETAILS_COLS)
-    logging.info('loading alignments ' + str(args.alignments))
-    apath = args.alignments
-    header = ''
-    if os.path.isfile(apath):
-        openf = bz2.open if apath.endswith('.bz2') else opener
-        if not apath.endswith('.bz2') and os.stat(apath).st_size == 0:
-            pass  # leave header as ''
-        else:
-            with openf(apath, 'rt') as alignments:
-                try:
-                    header = next(alignments)
-                except StopIteration:
-                    header = ''
-    if '\t' in header:
-        sep = '\t'
-    else:
-        sep = ','
-
-    # if alignments contains a header row, set header=0 for read_csv
-    if 'pident' in header:
-        header_row = 0
-    else:
-        header_row = None
-
     if args.columns:
+        header = None
+        sep = csv.Sniffer().sniff(args.columns).delimiter
         conv = ALIGNMENT_CONVERT
-        names = [conv.get(c, c) for c in args.columns.split(',')]
-    elif all(c in header for c in ['qseqid', 'sseqid', 'pident']):
+        names = [conv.get(c, c) for c in args.columns.split(sep)]
+    elif args.delimiter:
+        header = 0
+        sep = args.delimiter
         names = None
-    else:
-        #  blast std
+    elif args.blast6:
+        header = None
+        sep = '\t'
         names = ['qseqid', 'sseqid', 'pident', 'length',
                  'mismatch', 'gapopen', 'qstart', 'qend',
                  'sstart', 'send', 'evalue', 'bitscore']
+    elif args.infer:
+        header = 'infer'
+        sep = None
+        names = None
+    else:
+        header = 0
+        sep = ','
+        names = None
+
+    logging.info('loading alignments ' + str(args.alignments))
+
     aligns = pd.read_csv(
         args.alignments,
+        compression='infer',
         dtype=ALIGNMENT_DTYPES,
-        header=header_row,
+        header=header,
         names=names,
         sep=sep)
 
@@ -739,14 +732,28 @@ def build_parser():
         help='Suppress output')
 
     align_parser = parser.add_argument_group(
-        title='alignment input header-less options',
-        description=('will detect if header with '
-                     'qseqid,sseqid,pident else blast6 columns'))
+        title='alignment input format options',
+        description='Options for alignment input that is '
+                    'header-less or not comma-delimited')
     columns_parser = align_parser.add_mutually_exclusive_group(required=False)
     columns_parser.add_argument(
-        '--columns', '-c',
+        '--columns', '--header', '-c',
+        dest='columns',
         metavar='',
-        help=('specify columns for header-less alignments, separated by comma'))
+        help='specify columns names with delimiter')
+    columns_parser.add_argument(
+        '--delimiter',
+        metavar='',
+        help='specify just delimiter')
+    columns_parser.add_argument(
+        '--blast6', '--std',
+        action='store_true',
+        help='standard blast tab-separated format')
+    columns_parser.add_argument(
+        '--infer',
+        action='store_true',
+        help='Infer column names and separator. '
+             'Note: May decrease performance')
 
     selection_parser = parser.add_argument_group('selection options')
     selection_parser = selection_parser.add_mutually_exclusive_group(
