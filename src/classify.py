@@ -222,11 +222,17 @@ def action(args):
     details_cols = list(DETAILS_COLS)
     logging.info('loading alignments ' + str(args.alignments))
     apath = args.alignments
-    if os.path.isfile(apath) and os.stat(apath).st_size > 0:
-        with opener(apath) as alignments:
-            header = next(alignments)
-    else:
-        header = ''
+    header = ''
+    if os.path.isfile(apath):
+        openf = bz2.open if apath.endswith('.bz2') else opener
+        if not apath.endswith('.bz2') and os.stat(apath).st_size == 0:
+            pass  # leave header as ''
+        else:
+            with openf(apath, 'rt') as alignments:
+                try:
+                    header = next(alignments)
+                except StopIteration:
+                    header = ''
     if '\t' in header:
         sep = '\t'
     else:
@@ -255,6 +261,17 @@ def action(args):
         names=names,
         sep=sep)
 
+    if aligns.empty:
+        '''
+        Return just the output headers if no data exists
+        '''
+        pd.DataFrame(columns=output_cols).to_csv(args.out, index=False)
+        if args.details_out:
+            pd.DataFrame(columns=details_cols).to_csv(
+                args.details_out,
+                index=False)
+        return
+
     # specimen grouping
     if args.specimen_map:
         spec_map = pd.read_csv(
@@ -278,17 +295,6 @@ def action(args):
         # each qseqid is its own specimen
         aligns['specimen'] = aligns['qseqid']  # by qseqid
         aligns['weight'] = 1.
-
-    if aligns.empty:
-        '''
-        Return just the output headers if no data exists
-        '''
-        pd.DataFrame(columns=output_cols).to_csv(args.out, index=False)
-        if args.details_out:
-            pd.DataFrame(columns=details_cols).to_csv(
-                args.details_out,
-                index=False)
-        return
 
     # get a set of qseqids for identifying [no blast hits] after filtering
     qseqids = aligns[['specimen', 'qseqid', 'weight']].drop_duplicates()

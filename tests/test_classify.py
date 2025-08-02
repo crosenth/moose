@@ -309,6 +309,17 @@ class TestClassify(TestBase):
         self.assertTrue(filecmp.cmp(classify_ref, classify_out))
         self.assertTrue(filecmp.cmp(details_ref, details_out))
 
+        # --- Scenario 2: empty bz2 file ---
+        blast_bz2 = os.path.join(outdir, 'blast.csv.bz2')
+        import bz2
+        with bz2.open(blast_bz2, 'wt') as f:
+            pass  # creates a valid, but empty bz2 file
+        args[-1] = blast_bz2
+        logging.info(self.log_info.format(' '.join(map(str, args))))
+        self.main(args)
+        self.assertTrue(filecmp.cmp(classify_ref, classify_out))
+        self.assertTrue(filecmp.cmp(details_ref, details_out))
+
     def test09(self):
         """
         Test all [no blast results] classification with hits
@@ -512,3 +523,4 @@ class TestClassify(TestBase):
 
         self.assertTrue(filecmp.cmp(classify_ref, classify_out))
         self.assertTrue(filecmp.cmp(details_ref, details_out))
+
