@@ -524,3 +524,42 @@ class TestClassify(TestBase):
         self.assertTrue(filecmp.cmp(classify_ref, classify_out))
         self.assertTrue(filecmp.cmp(details_ref, details_out))
 
+    def test15(self):
+        """
+        --include-ref-rank not present in blast lineages
+        """
+
+        this_test = sys._getframe().f_code.co_name
+
+        thisdatadir = self.thisdatadir
+
+        taxonomy = os.path.join(thisdatadir, 'taxonomy.csv.bz2')
+        seq_info = os.path.join(thisdatadir, 'seq_info.csv.bz2')
+        blast = os.path.join(thisdatadir, 'blast.csv.bz2')
+
+        outdir = self.mkoutdir()
+
+        classify_out = os.path.join(outdir, 'classifications.csv.bz2')
+        details_out = os.path.join(outdir, 'details.csv.bz2')
+
+        classify_ref = os.path.join(
+            thisdatadir, this_test, 'classifications.csv.bz2')
+        details_ref = os.path.join(
+            thisdatadir, this_test, 'details.csv.bz2')
+
+        args = [
+            '--columns', 'qseqid,sseqid,pident,qstart,qend,qlen,qcovs',
+            '--details-out', details_out,
+            '--lineages', taxonomy,
+            '--include-ref-rank', 'forma',
+            '--out', classify_out,
+            '--rank-thresholds', self.rank_thresholds,
+            '--seq-info', seq_info,
+            blast]
+
+        logging.info(self.log_info.format(' '.join(map(str, args))))
+
+        self.main(args)
+
+        self.assertTrue(filecmp.cmp(classify_ref, classify_out))
+        self.assertTrue(filecmp.cmp(details_ref, details_out))
