@@ -326,13 +326,7 @@ def action(args):
     '''
     if args.lineages:
         logging.info('reading ' + args.lineages)
-        # Pass include_ref_rank to read_lineages to ensure those columns are present
-        lineages = read_lineages(
-            args.lineages,
-            set(aligns['tax_id'].tolist()),
-            include_ranks=args.include_ref_rank if args.include_ref_rank else None
-        )
-        
+        lineages = read_lineages(args.lineages, set(aligns['tax_id'].tolist()))
     else:
         tis = set(aligns['tax_id'].tolist())
         tree = build_lineages(tis, args.taxdump, args.tax_url)
@@ -343,16 +337,7 @@ def action(args):
         lineages = pd.DataFrame(
             data=tree.root.get_lineages(tree.ranks),
             columns=['tax_id', 'tax_name', 'rank'] + tree.ranks)
-    # Only drop columns with all NaN if they are not in include_ref_rank
-    lineages = lineages.set_index('tax_id')
-    if args.include_ref_rank:
-        cols_to_check = set(lineages.columns) - set(args.include_ref_rank)
-        cols_to_drop = [col for col in cols_to_check if lineages[col].isna().all()]
-        lineages = lineages.drop(columns=cols_to_drop)
-        for rank in args.include_ref_rank:
-            lineages[rank] = lineages[rank].astype(object)
-    else:
-        lineages = lineages.dropna(axis='columns', how='all')
+    lineages = lineages.set_index('tax_id').dropna(axis='columns', how='all')
 
     ranks = lineages.columns.tolist()
     ranks = ranks[ranks.index('root'):]
@@ -505,18 +490,19 @@ def action(args):
         # Foreach ref rank:
         # - merge with lineages, extract rank_id, rank_name
         for rank in args.include_ref_rank:
-            merged = aligns.merge(
-                lineages, left_on='tax_id',
-                right_index=True,
-                how='left')
-            if rank in merged.columns:
-                aligns[rank + '_id'] = merged[rank]
+            if rank in lineages.columns:
+                aligns[rank + '_id'] = aligns.merge(
+                    lineages, left_on='tax_id',
+                    right_index=True,
+                    how='left')[rank].fillna(0)
                 aligns[rank + '_name'] = aligns.merge(
                     lineages,
                     left_on=rank + '_id',
                     right_index=True,
                     how='left')['tax_name_y'].fillna("")
             else:
+                logging.warning(
+                    '--include-ref-rank {} not found in alignment lineages')
                 aligns[rank + '_id'] = ""
                 aligns[rank + '_name'] = ""
 
@@ -1182,12 +1168,11 @@ def read_seqinfo(path, ids):
     return pd.Series(data=seq_info, name='tax_id')
 
 
-def read_lineages(path, ids, include_ranks=None):
+def read_lineages(path, ids):
     """
     Iterates through lineages file only including necessary lineages
 
-    If include_ranks is provided, ensures those columns are present in the output,
-    even if they are empty for all selected tax_ids.
+    FIXME: tax_ids after first pass can disappear if tax_id rank not in columns
     """
     with opener(path) as taxfile:
         taxcsv = csv.reader(taxfile)
@@ -1201,13 +1186,7 @@ def read_lineages(path, ids, include_ranks=None):
         taxcsv = (r for r in taxcsv if r[tax_id] in tax_ids)
         taxcsv = (map(lambda x: x if x else numpy.nan, r) for r in taxcsv)
         data = [dict(zip(header, r)) for r in taxcsv]
-    df = pd.DataFrame(data=data, columns=header)
-    # Ensure include_ranks columns are present, even if empty
-    if include_ranks is not None:
-        for rank in include_ranks:
-            if rank not in df.columns:
-                df[rank] = numpy.nan
-    return df
+    return pd.DataFrame(data=data, columns=header)
 
 
 def opener(f, mode='rt'):
