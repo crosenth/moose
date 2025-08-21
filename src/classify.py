@@ -494,7 +494,7 @@ def action(args):
                 aligns[rank + '_id'] = aligns.merge(
                     lineages, left_on='tax_id',
                     right_index=True,
-                    how='left')[rank].fillna(0)
+                    how='left')[rank].fillna('0')
                 aligns[rank + '_name'] = aligns.merge(
                     lineages,
                     left_on=rank + '_id',
