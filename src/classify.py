@@ -129,6 +129,7 @@ TODO: generate rank thresholds based on lineages input
 """
 import argparse
 import bz2
+import codecs
 import csv
 import gzip
 import itertools
@@ -746,6 +747,7 @@ def build_parser():
         '--columns', '--header', '-c',
         dest='columns',
         metavar='',
+        type=lambda x: codecs.decode(x, 'unicode_escape'),
         help='specify columns names with delimiter')
     columns_parser.add_argument(
         '--delimiter',
