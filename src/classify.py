@@ -222,9 +222,9 @@ def action(args):
     details_cols = list(DETAILS_COLS)
     if args.columns:
         header = None
-        sep = csv.Sniffer().sniff(args.columns).delimiter
+        sep = args.delimiter
         conv = ALIGNMENT_CONVERT
-        names = [conv.get(c, c) for c in args.columns.split(sep)]
+        names = args.columns.split(',')
     elif args.delimiter:
         header = 0
         sep = args.delimiter
@@ -741,20 +741,22 @@ def build_parser():
         title='alignment input format options',
         description='Options for alignment input that is '
                     'header-less or not comma-delimited')
+    align_parser.add_argument(
+        '--delimiter',
+        metavar='',
+        default=',',
+        help='specify delimiter')
+
     columns_parser = align_parser.add_mutually_exclusive_group(required=False)
     columns_parser.add_argument(
         '--columns', '--header', '-c',
         dest='columns',
         metavar='',
-        help='specify columns names with delimiter')
-    columns_parser.add_argument(
-        '--delimiter',
-        metavar='',
-        help='specify just delimiter')
+        help='specify comma separated column names')
     columns_parser.add_argument(
         '--blast6', '--std',
         action='store_true',
-        help='standard blast tab-separated format')
+        help='standard blast tab-separated format (ignores delimiter)')
     columns_parser.add_argument(
         '--infer',
         action='store_true',
