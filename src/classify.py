@@ -128,6 +128,7 @@ assigned tax_ids of a higher threshold that *could* represent invalid tax_ids
 TODO: generate rank thresholds based on lineages input
 """
 import argparse
+import codecs
 import bz2
 import csv
 import gzip
@@ -178,11 +179,6 @@ ALIGNMENT_DTYPES = {
     'tax_name': str
 }
 
-ALIGNMENT_CONVERT = {
-    'qaccver': 'qseqid',
-    'saccver': 'sseqid'
-}
-
 OUTPUT_COLS = [
     'specimen', 'assignment_id', 'assignment',
     'best_rank', 'max_percent', 'min_percent',
@@ -223,7 +219,6 @@ def action(args):
     if args.columns:
         header = None
         sep = args.delimiter
-        conv = ALIGNMENT_CONVERT
         names = args.columns.split(',')
     elif args.delimiter:
         header = 0
@@ -745,6 +740,7 @@ def build_parser():
         '--delimiter',
         metavar='',
         default=',',
+        type=lambda x: codecs.decode(x, 'unicode_escape'),
         help='specify delimiter')
 
     columns_parser = align_parser.add_mutually_exclusive_group(required=False)
