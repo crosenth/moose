@@ -766,13 +766,6 @@ def build_parser():
         '--rank-thresholds',
         metavar='',
         help='Columns [tax_id,ranks...] [%(default)s]')
-    selection_parser.add_argument(
-        '--top-n-pct',
-        metavar='',
-        default=25,
-        type=float,
-        help=('top percent hits sorted by pident, evalue '
-              'or bitscore per taxonomy group'))
 
     assignment_parser = parser.add_argument_group('assignment options')
     assignment_parser.add_argument(
