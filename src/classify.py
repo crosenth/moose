@@ -623,7 +623,10 @@ def action(args):
         """sort details for consistency and ease of viewing.
         [no blast results] may have irregular aligns.columns
         """
-        aligns = aligns.sort_values(by=details_cols)
+        aligns = aligns.sort_values(
+            by=['specimen', 'assignment_id', 'weight', 'pident', 'tax_name'],
+            ascending=[True, True, False, False, True]
+            )
 
         aligns.to_csv(
             args.details_out,
