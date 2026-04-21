@@ -1,5 +1,7 @@
 # moose
 
+[![Unit Tests](https://github.com/crosenth/moose/actions/workflows/unittests.yml/badge.svg)](https://github.com/fhcrc/taxtastic/actions/workflows/unittests.yml) 
+
 A tool for taxonomically selecting, grouping and summarizing pairwise
 alignment classifications into something more concise and readable.
 
